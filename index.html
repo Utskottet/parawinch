@@ -1,1099 +1,1136 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Winch Remote v1.8</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+<title>Winch Remote v1.9</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Arial', sans-serif;
+  background: #1a1a1a;
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.main-content {
+  padding: 8px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+/* Compact header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  background: #2a2a2a;
+  border-radius: 5px;
+  min-height: 40px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.header h1 { font-size: 16px; font-weight: normal; }
+.header .controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.header button {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.header button:disabled { background: #555; cursor: not-allowed; }
+.header button:hover:not(:disabled) { background: #1976D2; }
+.fullscreen-btn { background: #FF9800 !important; }
+.fullscreen-btn:hover { background: #F57C00 !important; }
+.log-btn { background: #4CAF50 !important; }
+.log-btn:hover { background: #388E3C !important; }
+.log-btn.active { background: #f44336 !important; }
+.log-btn.active:hover { background: #c62828 !important; }
+.calc-btn { background: #9C27B0 !important; }
+.calc-btn:hover { background: #7B1FA2 !important; }
+.setgps-btn { background: #455A64 !important; }
+.setgps-btn:hover:not(:disabled) { background: #37474F !important; }
+.setgps-btn.gps-set { background: #00897B !important; }
+.setgps-btn.gps-set:hover { background: #00695C !important; }
+.status { font-size: 10px; color: #888; }
+.status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #555;
+  margin-right: 3px;
+}
+.status-dot.connected { background: #4CAF50; }
+.status-dot.disconnected { background: #f44336; }
 
-    body {
-      font-family: 'Arial', sans-serif;
-      background: #1a1a1a;
-      color: #fff;
-      overflow: hidden;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+/* Main content area */
+.content {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+}
+@media (orientation: landscape) {
+  .content { grid-template-columns: 0.8fr 2fr 1fr; }
+}
+@media (orientation: portrait) {
+  .content {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    overflow-y: auto;
+  }
+  .middle-column {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: unset !important;
+  }
+  .state-value { font-size: 60px !important; }
+}
 
-    .main-content {
-      padding: 8px;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+/* Left column */
+.left-column { display: flex; flex-direction: column; gap: 8px; }
+.state-display {
+  flex: 1;
+  background: #2a2a2a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  min-height: 120px;
+}
+.state-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
+.state-value {
+  font-size: 100px;
+  font-weight: bold;
+  color: #4CAF50;
+  line-height: 0.9;
+  text-shadow: 0 0 20px rgba(76,175,80,0.3);
+}
 
-    /* Compact header */
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      padding: 4px 10px;
-      background: #2a2a2a;
-      border-radius: 5px;
-      min-height: 40px;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
+/* Middle column */
+.middle-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.medium-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 80px;
+}
+.medium-label { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+.medium-value { font-size: 38px; font-weight: bold; color: #fff; line-height: 1; }
+.medium-unit { font-size: 18px; color: #888; margin-left: 3px; }
 
-    .header h1 {
-      font-size: 16px;
-      font-weight: normal;
-    }
+/* Split line distance card */
+.line-dist-card {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 80px;
+}
+.line-dist-label { font-size: 11px; color: #aaa; margin-bottom: 6px; text-align: center; }
+.line-dist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.line-dist-key { font-size: 11px; color: #888; min-width: 34px; }
+.line-dist-val { font-size: 28px; font-weight: bold; color: #fff; line-height: 1; }
+.line-dist-val.gps-val { color: #44aaff; }
+.line-dist-val.gps-no-anchor { color: #556677; }
+.line-dist-unit { font-size: 14px; color: #888; margin-left: 2px; }
 
-    .header .controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+/* Live force hint below amps */
+.force-hint { font-size: 13px; color: #888; margin-top: 4px; font-family: 'DM Mono', monospace; }
+.force-hint.warn { color: #ffaa00; }
+.force-hint.danger { color: #ff5555; }
+.line-state {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 15px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 4px;
+}
+.line-state.ready  { background: #4CAF50; color: white; }
+.line-state.armed  { background: #FF9800; color: white; }
+.line-state.stopped { background: #f44336; color: white; }
 
-    .header button {
-      background: #2196F3;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      font-size: 12px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+/* Right column */
+.right-column { display: flex; flex-direction: column; gap: 6px; }
+.standard-card {
+  background: #2a2a2a;
+  padding: 6px 10px;
+  border-radius: 6px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+.standard-label { font-size: 9px; color: #aaa; margin-bottom: 2px; }
+.standard-value { font-size: 18px; font-weight: bold; color: #fff; line-height: 1; }
+.standard-unit { font-size: 11px; color: #888; margin-left: 2px; }
+.battery-container { display: flex; align-items: center; gap: 4px; }
+.battery-bar {
+  width: 35px; height: 16px;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.battery-fill {
+  height: 100%;
+  background: linear-gradient(to right, #4CAF50, #8BC34A);
+  transition: width 0.3s ease;
+}
+.battery-fill.low { background: linear-gradient(to right, #f44336, #FF5722); }
+.charging-icon { font-size: 14px; color: #FFC107; animation: pulse 1s infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
-    .header button:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
+/* ── Calculator overlay ──────────────────────────────────────────────────── */
+#calcOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #080d14;
+  z-index: 1000;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#calcOverlay.visible { display: block; }
+.calc-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: 'DM Mono', monospace;
+}
+.calc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+  padding-top: 4px;
+}
+.calc-back {
+  background: #1a2233;
+  color: #c8ddf0;
+  border: 1px solid #2a3a50;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: 'DM Mono', monospace;
+}
+.calc-back:hover { background: #222f44; }
+.calc-title-wrap { display: flex; flex-direction: column; }
+.calc-title { font-size: 18px; color: #c8ddf0; font-weight: 500; }
+.calc-subtitle { font-size: 10px; color: #445566; letter-spacing: 0.1em; margin-top: 2px; }
+.calc-card {
+  background: #0d1520;
+  border: 1px solid #1a2a3a;
+  border-radius: 12px;
+  padding: 20px 20px 8px;
+  margin-bottom: 14px;
+}
+.calc-slider-wrap { margin-bottom: 24px; }
+.calc-slider-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.calc-slider-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8899aa;
+}
+.calc-slider-val { font-size: 28px; font-weight: 700; color: #e0eeff; }
+.calc-slider-unit { font-size: 12px; color: #8899aa; margin-left: 3px; }
+.calc-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #1a2233;
+  border-radius: 2px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #44aaff;
+  margin-bottom: 4px;
+}
+.calc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #44aaff;
+  border: 2px solid #080d14;
+  cursor: pointer;
+  box-shadow: 0 0 8px #44aaff88;
+}
+.calc-marks { display: flex; justify-content: space-between; }
+.calc-mark { font-size: 10px; color: #334455; }
 
-    .header button:hover:not(:disabled) {
-      background: #1976D2;
-    }
+/* Gauge */
+.calc-gauge { margin-bottom: 20px; }
+.calc-gauge-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.calc-gauge-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8899aa;
+}
+.calc-gauge-val { font-size: 34px; font-weight: 700; line-height: 1; }
+.calc-gauge-unit { font-size: 13px; color: #8899aa; margin-left: 4px; font-weight: 400; }
+.calc-gauge-bar {
+  height: 6px;
+  background: #1a2233;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.calc-gauge-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.15s ease, background 0.15s ease;
+}
 
-    .fullscreen-btn  { background: #FF9800 !important; }
-    .fullscreen-btn:hover { background: #F57C00 !important; }
-
-    .log-btn         { background: #4CAF50 !important; }
-    .log-btn:hover   { background: #388E3C !important; }
-    .log-btn.active  { background: #f44336 !important; }
-    .log-btn.active:hover { background: #c62828 !important; }
-
-    .calc-btn        { background: #9C27B0 !important; }
-    .calc-btn:hover  { background: #7B1FA2 !important; }
-
-    .status { font-size: 10px; color: #888; }
-
-    .status-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #555;
-      margin-right: 3px;
-    }
-    .status-dot.connected    { background: #4CAF50; }
-    .status-dot.disconnected { background: #f44336; }
-
-    /* Main content area */
-    .content {
-      flex: 1;
-      display: grid;
-      gap: 8px;
-      overflow: hidden;
-    }
-
-    @media (orientation: landscape) {
-      .content { grid-template-columns: 0.8fr 2fr 1fr; }
-    }
-
-    @media (orientation: portrait) {
-      .content {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr;
-        overflow-y: auto;
-      }
-      .middle-column {
-        grid-template-columns: 1fr 1fr !important;
-        grid-template-rows: unset !important;
-      }
-      .state-value { font-size: 60px !important; }
-    }
-
-    /* Left column */
-    .left-column { display: flex; flex-direction: column; gap: 8px; }
-
-    .state-display {
-      flex: 1;
-      background: #2a2a2a;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 10px;
-      min-height: 120px;
-    }
-
-    .state-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
-
-    .state-value {
-      font-size: 100px;
-      font-weight: bold;
-      color: #4CAF50;
-      line-height: 0.9;
-      text-shadow: 0 0 20px rgba(76,175,80,0.3);
-    }
-
-    /* Middle column */
-    .middle-column {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr 1fr;
-      gap: 8px;
-    }
-
-    .medium-card {
-      background: #2a2a2a;
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 80px;
-    }
-
-    .medium-label  { font-size: 11px; color: #aaa; margin-bottom: 4px; }
-    .medium-value  { font-size: 38px; font-weight: bold; color: #fff; line-height: 1; }
-    .medium-unit   { font-size: 18px; color: #888; margin-left: 3px; }
-
-    /* Live force hint below amps */
-    .force-hint    { font-size: 13px; color: #888; margin-top: 4px; font-family: 'DM Mono', monospace; }
-    .force-hint.warn   { color: #ffaa00; }
-    .force-hint.danger { color: #ff5555; }
-
-    .line-state {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 15px;
-      font-size: 16px;
-      font-weight: bold;
-      margin-top: 4px;
-    }
-    .line-state.ready   { background: #4CAF50; color: white; }
-    .line-state.armed   { background: #FF9800; color: white; }
-    .line-state.stopped { background: #f44336; color: white; }
-
-    /* Right column */
-    .right-column { display: flex; flex-direction: column; gap: 6px; }
-
-    .standard-card {
-      background: #2a2a2a;
-      padding: 6px 10px;
-      border-radius: 6px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 0;
-    }
-
-    .standard-label { font-size: 9px; color: #aaa; margin-bottom: 2px; }
-    .standard-value { font-size: 18px; font-weight: bold; color: #fff; line-height: 1; }
-    .standard-unit  { font-size: 11px; color: #888; margin-left: 2px; }
-
-    .battery-container { display: flex; align-items: center; gap: 4px; }
-
-    .battery-bar {
-      width: 35px; height: 16px;
-      border: 2px solid #fff;
-      border-radius: 3px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .battery-fill {
-      height: 100%;
-      background: linear-gradient(to right, #4CAF50, #8BC34A);
-      transition: width 0.3s ease;
-    }
-    .battery-fill.low { background: linear-gradient(to right, #f44336, #FF5722); }
-
-    .charging-icon { font-size: 14px; color: #FFC107; animation: pulse 1s infinite; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.5; }
-    }
-
-    .future-card { opacity: 0.4; position: relative; }
-    .future-label { font-size: 7px; color: #FFC107; position: absolute; top: 2px; right: 4px; }
-
-    /* ── Calculator overlay ──────────────────────────────────────────────────── */
-    #calcOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #080d14;
-      z-index: 1000;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    #calcOverlay.visible { display: block; }
-
-    .calc-wrap {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 16px;
-      font-family: 'DM Mono', monospace;
-    }
-
-    .calc-header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 28px;
-      padding-top: 4px;
-    }
-
-    .calc-back {
-      background: #1a2233;
-      color: #c8ddf0;
-      border: 1px solid #2a3a50;
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-family: 'DM Mono', monospace;
-    }
-    .calc-back:hover { background: #222f44; }
-
-    .calc-title-wrap { display: flex; flex-direction: column; }
-    .calc-title      { font-size: 18px; color: #c8ddf0; font-weight: 500; }
-    .calc-subtitle   { font-size: 10px; color: #445566; letter-spacing: 0.1em; margin-top: 2px; }
-
-    .calc-card {
-      background: #0d1520;
-      border: 1px solid #1a2a3a;
-      border-radius: 12px;
-      padding: 20px 20px 8px;
-      margin-bottom: 14px;
-    }
-
-    .calc-slider-wrap { margin-bottom: 24px; }
-
-    .calc-slider-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
-    }
-
-    .calc-slider-label {
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #8899aa;
-    }
-
-    .calc-slider-val  { font-size: 28px; font-weight: 700; color: #e0eeff; }
-    .calc-slider-unit { font-size: 12px; color: #8899aa; margin-left: 3px; }
-
-    .calc-slider {
-      width: 100%;
-      -webkit-appearance: none;
-      appearance: none;
-      background: #1a2233;
-      border-radius: 2px;
-      height: 4px;
-      cursor: pointer;
-      accent-color: #44aaff;
-      margin-bottom: 4px;
-    }
-    .calc-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      background: #44aaff;
-      border: 2px solid #080d14;
-      cursor: pointer;
-      box-shadow: 0 0 8px #44aaff88;
-    }
-
-    .calc-marks {
-      display: flex;
-      justify-content: space-between;
-    }
-    .calc-mark { font-size: 10px; color: #334455; }
-
-    /* Gauge */
-    .calc-gauge { margin-bottom: 20px; }
-
-    .calc-gauge-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 6px;
-    }
-
-    .calc-gauge-label {
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #8899aa;
-    }
-
-    .calc-gauge-val  { font-size: 34px; font-weight: 700; line-height: 1; }
-    .calc-gauge-unit { font-size: 13px; color: #8899aa; margin-left: 4px; font-weight: 400; }
-
-    .calc-gauge-bar {
-      height: 6px;
-      background: #1a2233;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .calc-gauge-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.15s ease, background 0.15s ease;
-    }
-
-    /* Status strip */
-    .calc-status {
-      border-radius: 10px;
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .calc-status-text { font-size: 11px; letter-spacing: 0.1em; }
-
-    .calc-status.safe   { background: #0a1a10; border: 1px solid #00884422; }
-    .calc-status.safe   .calc-status-text { color: #44cc88; }
-    .calc-status.warn   { background: #1f1800; border: 1px solid #ffaa0044; }
-    .calc-status.warn   .calc-status-text { color: #ffaa44; }
-    .calc-status.danger { background: #2a0a08; border: 1px solid #ff3b3b44; }
-    .calc-status.danger .calc-status-text { color: #ff5555; }
-
-    .calc-maxsafe     { font-size: 11px; color: #556677; }
-    .calc-maxsafe span { color: #aabbcc; }
-
-    .calc-footer {
-      font-size: 10px;
-      color: #334455;
-      text-align: right;
-      letter-spacing: 0.08em;
-      padding-bottom: 20px;
-    }
-  </style>
+/* Status strip */
+.calc-status {
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.calc-status-text { font-size: 11px; letter-spacing: 0.1em; }
+.calc-status.safe  { background: #0a1a10; border: 1px solid #00884422; }
+.calc-status.safe .calc-status-text  { color: #44cc88; }
+.calc-status.warn  { background: #1f1800; border: 1px solid #ffaa0044; }
+.calc-status.warn .calc-status-text  { color: #ffaa44; }
+.calc-status.danger { background: #2a0a08; border: 1px solid #ff3b3b44; }
+.calc-status.danger .calc-status-text { color: #ff5555; }
+.calc-maxsafe { font-size: 11px; color: #556677; }
+.calc-maxsafe span { color: #aabbcc; }
+.calc-footer {
+  font-size: 10px;
+  color: #334455;
+  text-align: right;
+  letter-spacing: 0.08em;
+  padding-bottom: 20px;
+}
+</style>
 </head>
 <body>
-  <div class="main-content">
-    <div class="header">
-      <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v1.8</span></h1>
-      <div class="controls">
-        <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
-        <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
-        <button onclick="connectAll()" id="connectBtn" style="display:none">Connect</button>
-        <button onclick="toggleLog()" id="logBtn" class="log-btn">Start Log</button>
-        <button onclick="showCalc()" class="calc-btn">Calc</button>
-        <button onclick="toggleFullscreen()" class="fullscreen-btn" id="fullscreenBtn">⛶ Full</button>
+<div class="main-content">
+  <div class="header">
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v1.9</span></h1>
+    <div class="controls">
+      <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
+      <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
+      <button onclick="connectAll()" id="connectBtn" style="display:none">Connect</button>
+      <button onclick="toggleSetGPS()" id="setGpsBtn" class="setgps-btn" disabled>Set GPS</button>
+      <button onclick="toggleLog()" id="logBtn" class="log-btn">Start Log</button>
+      <button onclick="showCalc()" class="calc-btn">Calc</button>
+      <button onclick="toggleFullscreen()" class="fullscreen-btn" id="fullscreenBtn">⛶ Full</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- LEFT: State -->
+    <div class="left-column">
+      <div class="state-display">
+        <div class="state-label">STATE</div>
+        <div class="state-value" id="state">-</div>
       </div>
     </div>
 
-    <div class="content">
-      <!-- LEFT: State -->
-      <div class="left-column">
-        <div class="state-display">
-          <div class="state-label">STATE</div>
-          <div class="state-value" id="state">-</div>
+    <!-- MIDDLE: Medium values 2x3 -->
+    <div class="middle-column">
+
+      <!-- Line Distance: split Tach / GPS -->
+      <div class="line-dist-card">
+        <div class="line-dist-label">Line Distance</div>
+        <div class="line-dist-row">
+          <span class="line-dist-key">Tach</span>
+          <span>
+            <span class="line-dist-val" id="lineDistance">0</span>
+            <span class="line-dist-unit">m</span>
+          </span>
+        </div>
+        <div class="line-dist-row">
+          <span class="line-dist-key">GPS</span>
+          <span>
+            <span class="line-dist-val gps-val gps-no-anchor" id="gpsLineDistance">--</span>
+            <span class="line-dist-unit">m</span>
+          </span>
         </div>
       </div>
 
-      <!-- MIDDLE: Medium values 2x3 -->
-      <div class="middle-column">
-        <div class="medium-card">
-          <div class="medium-label">Line Distance</div>
-          <div>
-            <span class="medium-value" id="lineDistance">0</span>
-            <span class="medium-unit">m</span>
-          </div>
-        </div>
+      <div class="medium-card">
+        <div class="medium-label">Line State</div>
+        <div class="line-state ready" id="lineState">READY</div>
+      </div>
 
-        <div class="medium-card">
-          <div class="medium-label">Line State</div>
-          <div class="line-state ready" id="lineState">READY</div>
+      <div class="medium-card">
+        <div class="medium-label">Current</div>
+        <div>
+          <span class="medium-value" id="amps">0</span>
+          <span class="medium-unit">A</span>
         </div>
+        <div class="force-hint" id="liveForce">-- kg</div>
+      </div>
 
-        <div class="medium-card">
-          <div class="medium-label">Current</div>
-          <div>
-            <span class="medium-value" id="amps">0</span>
-            <span class="medium-unit">A</span>
-          </div>
-          <div class="force-hint" id="liveForce">-- kg</div>
-        </div>
-
-        <div class="medium-card">
-          <div class="medium-label">Controller Temp</div>
-          <div>
-            <span class="medium-value" id="temp">0</span>
-            <span class="medium-unit">°C</span>
-          </div>
-        </div>
-
-        <div class="medium-card">
-          <div class="medium-label">Speed</div>
-          <div>
-            <span class="medium-value" id="xctSpeed">-</span>
-            <span class="medium-unit">km/h</span>
-          </div>
-        </div>
-
-        <div class="medium-card">
-          <div class="medium-label">GPS Alt</div>
-          <div>
-            <span class="medium-value" id="xctAlt">-</span>
-            <span class="medium-unit">m</span>
-          </div>
+      <div class="medium-card">
+        <div class="medium-label">Controller Temp</div>
+        <div>
+          <span class="medium-value" id="temp">0</span>
+          <span class="medium-unit">°C</span>
         </div>
       </div>
 
-      <!-- RIGHT: Standard values -->
-      <div class="right-column">
-        <div class="standard-card">
-          <div class="standard-label">RSSI</div>
-          <div>
-            <span class="standard-value" id="rssi">0</span>
-            <span class="standard-unit">dBm</span>
-          </div>
+      <div class="medium-card">
+        <div class="medium-label">Speed</div>
+        <div>
+          <span class="medium-value" id="xctSpeed">-</span>
+          <span class="medium-unit">km/h</span>
         </div>
+      </div>
 
-        <div class="standard-card">
-          <div class="standard-label">Lost Packages</div>
-          <div>
-            <span class="standard-value" id="lostPackages">0</span>
-          </div>
+      <div class="medium-card">
+        <div class="medium-label">GPS Alt</div>
+        <div>
+          <span class="medium-value" id="xctAlt">-</span>
+          <span class="medium-unit">m</span>
         </div>
+      </div>
+    </div>
 
-        <div class="standard-card">
-          <div class="standard-label">Winch Battery</div>
-          <div class="battery-container">
-            <div class="battery-bar">
-              <div class="battery-fill" id="winchBatteryBar" style="width:0%"></div>
-            </div>
-            <span class="standard-value" id="winchBattery">0</span>
-            <span class="standard-unit">%</span>
-          </div>
+    <!-- RIGHT: Standard values -->
+    <div class="right-column">
+      <div class="standard-card">
+        <div class="standard-label">RSSI</div>
+        <div>
+          <span class="standard-value" id="rssi">0</span>
+          <span class="standard-unit">dBm</span>
         </div>
-
-        <div class="standard-card">
-          <div class="standard-label">Remote Battery</div>
-          <div class="battery-container">
-            <div class="battery-bar">
-              <div class="battery-fill" id="remoteBatteryBar" style="width:0%"></div>
-            </div>
-            <span class="standard-value" id="remoteBattery">0</span>
-            <span class="standard-unit">%</span>
-            <span class="charging-icon" id="chargingIcon" style="display:none">⚡</span>
-          </div>
+      </div>
+      <div class="standard-card">
+        <div class="standard-label">Lost Packages</div>
+        <div>
+          <span class="standard-value" id="lostPackages">0</span>
         </div>
-
-        <div class="standard-card">
-          <div class="standard-label">SNR</div>
-          <div>
-            <span class="standard-value" id="snr">0</span>
-            <span class="standard-unit">dB</span>
+      </div>
+      <div class="standard-card">
+        <div class="standard-label">Winch Battery</div>
+        <div class="battery-container">
+          <div class="battery-bar">
+            <div class="battery-fill" id="winchBatteryBar" style="width:0%"></div>
           </div>
+          <span class="standard-value" id="winchBattery">0</span>
+          <span class="standard-unit">%</span>
         </div>
-
-        <div class="standard-card">
-          <div class="standard-label">Winch Voltage</div>
-          <div>
-            <span class="standard-value" id="vescVoltage">0</span>
-            <span class="standard-unit">V</span>
+      </div>
+      <div class="standard-card">
+        <div class="standard-label">Remote Battery</div>
+        <div class="battery-container">
+          <div class="battery-bar">
+            <div class="battery-fill" id="remoteBatteryBar" style="width:0%"></div>
           </div>
+          <span class="standard-value" id="remoteBattery">0</span>
+          <span class="standard-unit">%</span>
+          <span class="charging-icon" id="chargingIcon" style="display:none">⚡</span>
+        </div>
+      </div>
+      <div class="standard-card">
+        <div class="standard-label">SNR</div>
+        <div>
+          <span class="standard-value" id="snr">0</span>
+          <span class="standard-unit">dB</span>
+        </div>
+      </div>
+      <div class="standard-card">
+        <div class="standard-label">Winch Voltage</div>
+        <div>
+          <span class="standard-value" id="vescVoltage">0</span>
+          <span class="standard-unit">V</span>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ── Calculator overlay ─────────────────────────────────────────────────── -->
-  <div id="calcOverlay">
-    <div class="calc-wrap">
-
-      <div class="calc-header">
-        <button class="calc-back" onclick="hideCalc()">← Back</button>
-        <div class="calc-title-wrap">
-          <div class="calc-title">Tow Calculator</div>
-          <div class="calc-subtitle">PARAWINCH / SIM · v1.8</div>
-        </div>
+<!-- ── Calculator overlay ─────────────────────────────────────────────────── -->
+<div id="calcOverlay">
+  <div class="calc-wrap">
+    <div class="calc-header">
+      <button class="calc-back" onclick="hideCalc()">← Back</button>
+      <div class="calc-title-wrap">
+        <div class="calc-title">Tow Calculator</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v1.9</div>
       </div>
-
-      <!-- Sliders -->
-      <div class="calc-card">
-        <div class="calc-slider-wrap">
-          <div class="calc-slider-top">
-            <span class="calc-slider-label">Motor current</span>
-            <span>
-              <span class="calc-slider-val" id="calcAmpsVal">80</span>
-              <span class="calc-slider-unit">A</span>
-            </span>
-          </div>
-          <input class="calc-slider" type="range" id="calcAmps" min="20" max="160" value="80"
-                 oninput="updateCalc()">
-          <div class="calc-marks">
-            <span class="calc-mark">20</span>
-            <span class="calc-mark">60</span>
-            <span class="calc-mark">100</span>
-            <span class="calc-mark">140</span>
-            <span class="calc-mark">160</span>
-          </div>
-        </div>
-
-        <div class="calc-slider-wrap">
-          <div class="calc-slider-top">
-            <span class="calc-slider-label">Line out</span>
-            <span>
-              <span class="calc-slider-val" id="calcLineOutVal">1300</span>
-              <span class="calc-slider-unit">m</span>
-            </span>
-          </div>
-          <input class="calc-slider" type="range" id="calcLineOut" min="0" max="1500" value="1300"
-                 oninput="updateCalc()">
-          <div class="calc-marks">
-            <span class="calc-mark">0</span>
-            <span class="calc-mark">375</span>
-            <span class="calc-mark">750</span>
-            <span class="calc-mark">1125</span>
-            <span class="calc-mark">1500</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gauges -->
-      <div class="calc-card" style="padding-bottom:16px">
-        <!-- Line pull -->
-        <div class="calc-gauge">
-          <div class="calc-gauge-top">
-            <span class="calc-gauge-label">Line pull</span>
-            <span>
-              <span class="calc-gauge-val" id="cgForce" style="color:#44aaff">0.0</span>
-              <span class="calc-gauge-unit">kg</span>
-            </span>
-          </div>
-          <div class="calc-gauge-bar">
-            <div class="calc-gauge-fill" id="cgForceBar" style="width:0%;background:#44aaff"></div>
-          </div>
-        </div>
-
-        <!-- Max line speed -->
-        <div class="calc-gauge">
-          <div class="calc-gauge-top">
-            <span class="calc-gauge-label">Max line speed</span>
-            <span>
-              <span class="calc-gauge-val" id="cgSpeed" style="color:#44aaff">0.0</span>
-              <span class="calc-gauge-unit">km/h</span>
-            </span>
-          </div>
-          <div class="calc-gauge-bar">
-            <div class="calc-gauge-fill" id="cgSpeedBar" style="width:0%;background:#44aaff"></div>
-          </div>
-        </div>
-
-        <!-- Drum diameter -->
-        <div class="calc-gauge">
-          <div class="calc-gauge-top">
-            <span class="calc-gauge-label">Drum diameter</span>
-            <span>
-              <span class="calc-gauge-val" id="cgDrum" style="color:#669">150</span>
-              <span class="calc-gauge-unit">mm</span>
-            </span>
-          </div>
-          <div class="calc-gauge-bar">
-            <div class="calc-gauge-fill" id="cgDrumBar" style="width:0%;background:#446688"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Status strip -->
-      <div class="calc-status safe" id="calcStatus">
-        <span class="calc-status-text" id="calcStatusText">✓ WITHIN SAFE LIMIT</span>
-        <span class="calc-maxsafe">max safe: <span id="calcMaxSafe">-- A</span></span>
-      </div>
-
-      <div class="calc-footer" id="calcFooter">speed ceiling: ERPM limited · 76.7 V resting</div>
-
     </div>
+
+    <!-- Sliders -->
+    <div class="calc-card">
+      <div class="calc-slider-wrap">
+        <div class="calc-slider-top">
+          <span class="calc-slider-label">Motor current</span>
+          <span>
+            <span class="calc-slider-val" id="calcAmpsVal">80</span>
+            <span class="calc-slider-unit">A</span>
+          </span>
+        </div>
+        <input class="calc-slider" type="range" id="calcAmps" min="20" max="160" value="80"
+               oninput="updateCalc()">
+        <div class="calc-marks">
+          <span class="calc-mark">20</span>
+          <span class="calc-mark">60</span>
+          <span class="calc-mark">100</span>
+          <span class="calc-mark">140</span>
+          <span class="calc-mark">160</span>
+        </div>
+      </div>
+      <div class="calc-slider-wrap">
+        <div class="calc-slider-top">
+          <span class="calc-slider-label">Line out</span>
+          <span>
+            <span class="calc-slider-val" id="calcLineOutVal">1300</span>
+            <span class="calc-slider-unit">m</span>
+          </span>
+        </div>
+        <input class="calc-slider" type="range" id="calcLineOut" min="0" max="1500" value="1300"
+               oninput="updateCalc()">
+        <div class="calc-marks">
+          <span class="calc-mark">0</span>
+          <span class="calc-mark">375</span>
+          <span class="calc-mark">750</span>
+          <span class="calc-mark">1125</span>
+          <span class="calc-mark">1500</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gauges -->
+    <div class="calc-card" style="padding-bottom:16px">
+      <div class="calc-gauge">
+        <div class="calc-gauge-top">
+          <span class="calc-gauge-label">Line pull</span>
+          <span>
+            <span class="calc-gauge-val" id="cgForce" style="color:#44aaff">0.0</span>
+            <span class="calc-gauge-unit">kg</span>
+          </span>
+        </div>
+        <div class="calc-gauge-bar">
+          <div class="calc-gauge-fill" id="cgForceBar" style="width:0%;background:#44aaff"></div>
+        </div>
+      </div>
+      <div class="calc-gauge">
+        <div class="calc-gauge-top">
+          <span class="calc-gauge-label">Max line speed</span>
+          <span>
+            <span class="calc-gauge-val" id="cgSpeed" style="color:#44aaff">0.0</span>
+            <span class="calc-gauge-unit">km/h</span>
+          </span>
+        </div>
+        <div class="calc-gauge-bar">
+          <div class="calc-gauge-fill" id="cgSpeedBar" style="width:0%;background:#44aaff"></div>
+        </div>
+      </div>
+      <div class="calc-gauge">
+        <div class="calc-gauge-top">
+          <span class="calc-gauge-label">Drum diameter</span>
+          <span>
+            <span class="calc-gauge-val" id="cgDrum" style="color:#669">150</span>
+            <span class="calc-gauge-unit">mm</span>
+          </span>
+        </div>
+        <div class="calc-gauge-bar">
+          <div class="calc-gauge-fill" id="cgDrumBar" style="width:0%;background:#446688"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status strip -->
+    <div class="calc-status safe" id="calcStatus">
+      <span class="calc-status-text" id="calcStatusText">✓ WITHIN SAFE LIMIT</span>
+      <span class="calc-maxsafe">max safe: <span id="calcMaxSafe">-- A</span></span>
+    </div>
+    <div class="calc-footer" id="calcFooter">speed ceiling: ERPM limited · 76.7 V resting</div>
   </div>
+</div>
 
-  <script>
-    // ── Physics constants ─────────────────────────────────────────────────────
-    const DRUM_FULL_MM  = 290;   // actual full drum with line (area model)
-    const DRUM_EMPTY_MM = 150;   // empty drum with spacer installed (area model)
-    const CALIB_DIAM_MM = 265;   // diameter at which crane scale calibration was done
-    const LINE_TOTAL_M  = 1500;
-    const EFF_SLOPE     = 0.503; // kg/A at CALIB_DIAM_MM (measured)
-    const FRICTION_KG   = 4.6;
-    const PILOT_WEIGHT  = 80;    // kg
-    const KV_ERPM       = 277;
-    const POLE_PAIRS    = 5;
-    const GEAR_RATIO    = 4.091;
-    const ERPM_MAX      = 19000;
-    const BATT_V        = 76.7;  // resting voltage (worst case back-EMF)
+<script>
+// ── Physics constants ─────────────────────────────────────────────────────
+const DRUM_FULL_MM   = 290;
+const DRUM_EMPTY_MM  = 150;
+const CALIB_DIAM_MM  = 265;
+const LINE_TOTAL_M   = 1500;
+const EFF_SLOPE      = 0.503;
+const FRICTION_KG    = 4.6;
+const PILOT_WEIGHT   = 80;
+const KV_ERPM        = 277;
+const POLE_PAIRS     = 5;
+const GEAR_RATIO     = 4.091;
+const ERPM_MAX       = 19000;
+const BATT_V         = 76.7;
 
-    function drumDiamFromLineOut(lineOutM) {
-      const lineOn = Math.max(0, Math.min(LINE_TOTAL_M, LINE_TOTAL_M - lineOutM));
-      const rEmpty = DRUM_EMPTY_MM / 2 / 1000;
-      const rFull  = DRUM_FULL_MM  / 2 / 1000;
-      const r = Math.sqrt(rEmpty * rEmpty + (rFull * rFull - rEmpty * rEmpty) * (lineOn / LINE_TOTAL_M));
-      return r * 2 * 1000;
-    }
+function drumDiamFromLineOut(lineOutM) {
+  const lineOn = Math.max(0, Math.min(LINE_TOTAL_M, LINE_TOTAL_M - lineOutM));
+  const rEmpty = DRUM_EMPTY_MM / 2 / 1000;
+  const rFull  = DRUM_FULL_MM  / 2 / 1000;
+  const r = Math.sqrt(rEmpty * rEmpty + (rFull * rFull - rEmpty * rEmpty) * (lineOn / LINE_TOTAL_M));
+  return r * 2 * 1000;
+}
 
-    // Force calibrated at CALIB_DIAM_MM, scaled to actual drum diameter
-    function calcForce(amps, drumMm) {
-      const forceAtCalib = EFF_SLOPE * amps - FRICTION_KG;
-      return Math.max(0, forceAtCalib * (CALIB_DIAM_MM / drumMm));
-    }
+function calcForce(amps, drumMm) {
+  const forceAtCalib = EFF_SLOPE * amps - FRICTION_KG;
+  return Math.max(0, forceAtCalib * (CALIB_DIAM_MM / drumMm));
+}
 
-    function maxLineSpeedKmh(drumMm) {
-      const motorRpmLimit  = ERPM_MAX / POLE_PAIRS;
-      const backEmfRpmMax  = (KV_ERPM * BATT_V) / POLE_PAIRS;
-      const effectiveRpm   = Math.min(motorRpmLimit, backEmfRpmMax);
-      const drumRpm        = effectiveRpm / GEAR_RATIO;
-      return (drumRpm * Math.PI * drumMm / 1000) / 60 * 3.6;
-    }
+function maxLineSpeedKmh(drumMm) {
+  const motorRpmLimit  = ERPM_MAX / POLE_PAIRS;
+  const backEmfRpmMax  = (KV_ERPM * BATT_V) / POLE_PAIRS;
+  const effectiveRpm   = Math.min(motorRpmLimit, backEmfRpmMax);
+  const drumRpm        = effectiveRpm / GEAR_RATIO;
+  return (drumRpm * Math.PI * drumMm / 1000) / 60 * 3.6;
+}
 
-    function maxSafeAmps(drumMm) {
-      return Math.min(160, (PILOT_WEIGHT * drumMm / CALIB_DIAM_MM + FRICTION_KG) / EFF_SLOPE);
-    }
+function maxSafeAmps(drumMm) {
+  return Math.min(160, (PILOT_WEIGHT * drumMm / CALIB_DIAM_MM + FRICTION_KG) / EFF_SLOPE);
+}
 
-    // ── Calculator overlay ────────────────────────────────────────────────────
-    function showCalc() {
-      document.getElementById('calcOverlay').classList.add('visible');
-      updateCalc();
-    }
+// ── GPS anchor & haversine ────────────────────────────────────────────────
+let gpsAnchor = null;   // { lat, lon } in decimal degrees
+let currentLat = null;
+let currentLon = null;
+let xctHasFix  = false;
 
-    function hideCalc() {
-      document.getElementById('calcOverlay').classList.remove('visible');
-    }
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R  = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const a  = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
-    function gaugeColor(val, warn, danger) {
-      if (val >= danger) return '#ff3b3b';
-      if (val >= warn)   return '#ffaa00';
-      return '#44aaff';
-    }
+function nmeaToDecimal(raw, hemi) {
+  // DDMM.MMMMM or DDDMM.MMMMM
+  const dot = raw.indexOf('.');
+  const deg = parseInt(raw.slice(0, dot - 2), 10);
+  const min = parseFloat(raw.slice(dot - 2));
+  let dec = deg + min / 60;
+  if (hemi === 'S' || hemi === 'W') dec = -dec;
+  return dec;
+}
 
-    function updateCalc() {
-      const amps    = Number(document.getElementById('calcAmps').value);
-      const lineOut = Number(document.getElementById('calcLineOut').value);
+function toggleSetGPS() {
+  if (gpsAnchor) {
+    // Clear anchor
+    gpsAnchor = null;
+    const btn = document.getElementById('setGpsBtn');
+    btn.textContent = 'Set GPS';
+    btn.classList.remove('gps-set');
+    updateGPSDisplay();
+  } else {
+    if (currentLat === null || !xctHasFix) return;
+    gpsAnchor = { lat: currentLat, lon: currentLon };
+    const btn = document.getElementById('setGpsBtn');
+    btn.textContent = 'GPS Set ✓';
+    btn.classList.add('gps-set');
+    updateGPSDisplay();
+  }
+}
 
-      document.getElementById('calcAmpsVal').textContent    = amps;
-      document.getElementById('calcLineOutVal').textContent = lineOut;
+function updateGPSDisplay() {
+  const el = document.getElementById('gpsLineDistance');
+  if (!gpsAnchor || currentLat === null) {
+    el.textContent = '--';
+    el.classList.add('gps-no-anchor');
+    return;
+  }
+  const dist = haversineM(gpsAnchor.lat, gpsAnchor.lon, currentLat, currentLon);
+  el.textContent = Math.round(dist);
+  el.classList.remove('gps-no-anchor');
+}
 
-      const drumMm  = drumDiamFromLineOut(lineOut);
-      const force   = calcForce(amps, drumMm);
-      const speedKmh = maxLineSpeedKmh(drumMm);
-      const maxSafeA = maxSafeAmps(drumMm);
+// ── Calculator overlay ────────────────────────────────────────────────────
+function showCalc() { document.getElementById('calcOverlay').classList.add('visible'); updateCalc(); }
+function hideCalc() { document.getElementById('calcOverlay').classList.remove('visible'); }
 
-      // Back-EMF vs ERPM
-      const backEmfRpm = (KV_ERPM * BATT_V) / POLE_PAIRS;
-      const activeLimit = backEmfRpm < (ERPM_MAX / POLE_PAIRS) ? 'back-EMF' : 'ERPM';
+function gaugeColor(val, warn, danger) {
+  if (val >= danger) return '#ff3b3b';
+  if (val >= warn)   return '#ffaa00';
+  return '#44aaff';
+}
 
-      // Force gauge
-      const forceColor = gaugeColor(force, PILOT_WEIGHT * 0.9, PILOT_WEIGHT);
-      document.getElementById('cgForce').textContent    = force.toFixed(1);
-      document.getElementById('cgForce').style.color    = forceColor;
-      document.getElementById('cgForceBar').style.width  = Math.min(100, force / 160 * 100) + '%';
-      document.getElementById('cgForceBar').style.background = forceColor;
+function updateCalc() {
+  const amps    = Number(document.getElementById('calcAmps').value);
+  const lineOut = Number(document.getElementById('calcLineOut').value);
+  document.getElementById('calcAmpsVal').textContent    = amps;
+  document.getElementById('calcLineOutVal').textContent = lineOut;
 
-      // Speed gauge
-      const speedColor = gaugeColor(speedKmh, 35, 50);
-      document.getElementById('cgSpeed').textContent    = speedKmh.toFixed(1);
-      document.getElementById('cgSpeed').style.color    = speedColor;
-      document.getElementById('cgSpeedBar').style.width  = Math.min(100, speedKmh / 60 * 100) + '%';
-      document.getElementById('cgSpeedBar').style.background = speedColor;
+  const drumMm   = drumDiamFromLineOut(lineOut);
+  const force    = calcForce(amps, drumMm);
+  const speedKmh = maxLineSpeedKmh(drumMm);
+  const maxSafeA = maxSafeAmps(drumMm);
 
-      // Drum gauge
-      document.getElementById('cgDrum').textContent     = drumMm.toFixed(0);
-      document.getElementById('cgDrumBar').style.width   = Math.min(100, (drumMm - DRUM_EMPTY_MM) / (DRUM_FULL_MM - DRUM_EMPTY_MM) * 100) + '%';
+  const backEmfRpm  = (KV_ERPM * BATT_V) / POLE_PAIRS;
+  const activeLimit = backEmfRpm < (ERPM_MAX / POLE_PAIRS) ? 'back-EMF' : 'ERPM';
 
-      // Status strip
-      const statusEl = document.getElementById('calcStatus');
-      const statusTxt = document.getElementById('calcStatusText');
-      const overPilot  = force > PILOT_WEIGHT;
-      const nearLimit  = force > PILOT_WEIGHT * 0.9;
-      statusEl.className = 'calc-status ' + (overPilot ? 'danger' : nearLimit ? 'warn' : 'safe');
-      statusTxt.textContent = overPilot ? '⚠ EXCEEDS PILOT WEIGHT'
-        : nearLimit ? '▲ APPROACHING LIMIT' : '✓ WITHIN SAFE LIMIT';
-      document.getElementById('calcMaxSafe').textContent = maxSafeA.toFixed(0) + ' A';
+  const forceColor = gaugeColor(force, PILOT_WEIGHT * 0.9, PILOT_WEIGHT);
+  document.getElementById('cgForce').textContent      = force.toFixed(1);
+  document.getElementById('cgForce').style.color      = forceColor;
+  document.getElementById('cgForceBar').style.width   = Math.min(100, force / 160 * 100) + '%';
+  document.getElementById('cgForceBar').style.background = forceColor;
 
-      document.getElementById('calcFooter').textContent =
-        'speed ceiling: ' + activeLimit + ' limited · ' + BATT_V + ' V resting · calib ref: ' + CALIB_DIAM_MM + ' mm';
-    }
+  const speedColor = gaugeColor(speedKmh, 35, 50);
+  document.getElementById('cgSpeed').textContent      = speedKmh.toFixed(1);
+  document.getElementById('cgSpeed').style.color      = speedColor;
+  document.getElementById('cgSpeedBar').style.width   = Math.min(100, speedKmh / 60 * 100) + '%';
+  document.getElementById('cgSpeedBar').style.background = speedColor;
 
-    // ── Winch BLE (NUS) ───────────────────────────────────────────────────────
-    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const CHAR_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
-    const CHAR_RX      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  document.getElementById('cgDrum').textContent       = drumMm.toFixed(0);
+  document.getElementById('cgDrumBar').style.width    =
+    Math.min(100, (drumMm - DRUM_EMPTY_MM) / (DRUM_FULL_MM - DRUM_EMPTY_MM) * 100) + '%';
 
-    let device, server, txChar, rxChar;
+  const statusEl  = document.getElementById('calcStatus');
+  const statusTxt = document.getElementById('calcStatusText');
+  const overPilot = force > PILOT_WEIGHT;
+  const nearLimit = force > PILOT_WEIGHT * 0.9;
+  statusEl.className = 'calc-status ' + (overPilot ? 'danger' : nearLimit ? 'warn' : 'safe');
+  statusTxt.textContent = overPilot ? '⚠ EXCEEDS PILOT WEIGHT'
+                        : nearLimit ? '▲ APPROACHING LIMIT' : '✓ WITHIN SAFE LIMIT';
 
-    const cv = {
-      state:0, lineDistance:0, lineState:'-', amps:0, temp:0,
-      rssi:0, snr:0, lostPct:0, winchBat:0, remoteBat:0,
-      vescVolt:0, speed:0, gpsAlt:0
-    };
+  document.getElementById('calcMaxSafe').textContent = maxSafeA.toFixed(0) + ' A';
+  document.getElementById('calcFooter').textContent  =
+    'speed ceiling: ' + activeLimit + ' limited · ' + BATT_V + ' V resting · calib ref: ' + CALIB_DIAM_MM + ' mm';
+}
 
-    // ── Logging ───────────────────────────────────────────────────────────────
-    const LOG_HEADER =
-      'timestamp,elapsed_s,state,line_state,' +
-      'line_distance_m,line_speed_ms,' +
-      'alt_gain_m,climb_rate_ms,' +
-      'speed_kmh,amps_A,voltage_V,power_kW,energy_Wh,' +
-      'rssi_dBm,snr_dB,lost_pct';
+// ── Winch BLE (NUS) ───────────────────────────────────────────────────────
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const CHAR_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const CHAR_RX      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
-    let logActive   = false;
-    let logRows     = [];
-    let logTimer    = null;
-    let logStart    = null;
-    let altBaseline = null;
-    let prevAlt     = null;
-    let prevLine    = null;
-    let prevTs      = null;
-    let energyWh    = 0;
+let device, server, txChar, rxChar;
 
-    let maxAltGain = 0, maxSpeed = 0, maxClimb = 0;
-    let maxPower   = 0, maxLine  = 0, maxAmps  = 0;
+const cv = {
+  state:0, lineDistance:0, lineState:'-', amps:0, temp:0,
+  rssi:0, snr:0, lostPct:0, winchBat:0, remoteBat:0,
+  vescVolt:0, speed:0, gpsAlt:0
+};
 
-    function toggleLog() { logActive ? stopLog() : startLog(); }
+// ── Logging ───────────────────────────────────────────────────────────────
+const LOG_HEADER =
+  'timestamp,elapsed_s,state,line_state,' +
+  'line_distance_m,line_speed_ms,' +
+  'gps_dist_m,' +
+  'alt_gain_m,climb_rate_ms,' +
+  'speed_kmh,amps_A,voltage_V,power_kW,energy_Wh,' +
+  'rssi_dBm,snr_dB,lost_pct';
 
-    function startLog() {
-      logActive   = true;
-      logRows     = [];
-      logStart    = new Date();
-      altBaseline = cv.gpsAlt || null;
-      prevAlt     = altBaseline;
-      prevLine    = cv.lineDistance;
-      prevTs      = Date.now();
-      energyWh    = 0;
-      maxAltGain  = 0; maxSpeed = 0; maxClimb = 0;
-      maxPower    = 0; maxLine  = 0; maxAmps  = 0;
-      logTimer    = setInterval(writeLogRow, 1000);
-      const btn   = document.getElementById('logBtn');
-      btn.textContent = 'Stop Log';
-      btn.classList.add('active');
-    }
+let logActive  = false;
+let logRows    = [];
+let logTimer   = null;
+let logStart   = null;
+let altBaseline = null;
+let prevAlt    = null;
+let prevLine   = null;
+let prevTs     = null;
+let energyWh   = 0;
+let maxAltGain = 0, maxSpeed = 0, maxClimb = 0;
+let maxPower   = 0, maxLine  = 0, maxAmps  = 0;
 
-    function stopLog() {
-      logActive = false;
-      clearInterval(logTimer);
-      const btn = document.getElementById('logBtn');
-      btn.textContent = 'Start Log';
-      btn.classList.remove('active');
-      downloadCSV();
-    }
+function toggleLog() { logActive ? stopLog() : startLog(); }
 
-    function writeLogRow() {
-      const now     = Date.now();
-      const elapsed = ((now - logStart) / 1000).toFixed(1);
-      const dt      = (now - prevTs) / 1000;
-      prevTs        = now;
+function startLog() {
+  logActive  = true;
+  logRows    = [];
+  logStart   = new Date();
+  altBaseline = cv.gpsAlt || null;
+  prevAlt    = altBaseline;
+  prevLine   = cv.lineDistance;
+  prevTs     = Date.now();
+  energyWh   = 0;
+  maxAltGain = 0; maxSpeed = 0; maxClimb = 0;
+  maxPower   = 0; maxLine  = 0; maxAmps  = 0;
+  logTimer   = setInterval(writeLogRow, 1000);
+  const btn  = document.getElementById('logBtn');
+  btn.textContent = 'Stop Log';
+  btn.classList.add('active');
+}
 
-      if (altBaseline === null && cv.gpsAlt !== 0) {
-        altBaseline = cv.gpsAlt;
-        prevAlt     = cv.gpsAlt;
+function stopLog() {
+  logActive = false;
+  clearInterval(logTimer);
+  const btn = document.getElementById('logBtn');
+  btn.textContent = 'Start Log';
+  btn.classList.remove('active');
+  downloadCSV();
+}
+
+function writeLogRow() {
+  const now     = Date.now();
+  const elapsed = ((now - logStart) / 1000).toFixed(1);
+  const dt      = (now - prevTs) / 1000;
+  prevTs = now;
+
+  if (altBaseline === null && cv.gpsAlt !== 0) {
+    altBaseline = cv.gpsAlt;
+    prevAlt     = cv.gpsAlt;
+  }
+
+  const altGain   = altBaseline !== null ? +(cv.gpsAlt - altBaseline).toFixed(1) : 0;
+  const climbRate = prevAlt !== null && dt > 0 ? +((cv.gpsAlt - prevAlt) / dt).toFixed(2) : 0;
+  prevAlt = cv.gpsAlt;
+
+  const lineSpeed = prevLine !== null && dt > 0 ? +((cv.lineDistance - prevLine) / dt).toFixed(2) : 0;
+  prevLine = cv.lineDistance;
+
+  const gpsDist = (gpsAnchor && currentLat !== null)
+    ? Math.round(haversineM(gpsAnchor.lat, gpsAnchor.lon, currentLat, currentLon))
+    : '';
+
+  const powerKW = +(cv.amps * cv.vescVolt / 1000).toFixed(3);
+  energyWh += powerKW * (dt / 3600);
+
+  if (altGain   > maxAltGain) maxAltGain = altGain;
+  if (cv.speed  > maxSpeed)   maxSpeed   = cv.speed;
+  if (climbRate > maxClimb)   maxClimb   = climbRate;
+  if (powerKW   > maxPower)   maxPower   = powerKW;
+  if (cv.lineDistance > maxLine) maxLine = cv.lineDistance;
+  if (cv.amps   > maxAmps)    maxAmps    = cv.amps;
+
+  logRows.push([
+    new Date().toISOString(), elapsed,
+    cv.state, cv.lineState,
+    cv.lineDistance, lineSpeed,
+    gpsDist,
+    altGain, climbRate,
+    cv.speed, cv.amps, cv.vescVolt, powerKW, +energyWh.toFixed(4),
+    cv.rssi, cv.snr, cv.lostPct
+  ].join(','));
+}
+
+function downloadCSV() {
+  if (!logRows.length) return;
+  const duration = ((Date.now() - logStart) / 1000).toFixed(0);
+  const eff      = energyWh > 0 ? (maxAltGain / energyWh).toFixed(0) : 'N/A';
+  const dateStr  = logStart.toISOString().slice(0,19).replace('T',' ');
+  const summary  = [
+    '# Flight: ' + dateStr,
+    '# Duration: ' + duration + 's',
+    '# Max height gained: ' + maxAltGain + ' m',
+    '# Max speed: ' + maxSpeed + ' km/h',
+    '# Max climb rate: ' + maxClimb + ' m/s',
+    '# Max amps: ' + maxAmps + ' A',
+    '# Max power: ' + maxPower + ' kW',
+    '# Total energy: ' + energyWh.toFixed(3) + ' Wh',
+    '# Efficiency: ' + eff + ' m/Wh',
+    '# Max line out: ' + maxLine + ' m',
+    '#'
+  ].join('\n');
+  const csv  = summary + '\n' + LOG_HEADER + '\n' + logRows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'winch_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── XC Tracer BLE ─────────────────────────────────────────────────────────
+const XCT_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+const XCT_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+let xctDevice, xctServer, xctChar;
+let xctBuffer = '';
+
+const lineStateNames   = ['READY', 'ARMED', 'STOPPED'];
+const lineStateClasses = ['ready', 'armed', 'stopped'];
+
+async function connectAll() {
+  document.getElementById('connectBtn').style.display = 'none';
+  await connect();
+  await connectXCT();
+}
+
+async function connectToDevice(d) {
+  device = d;
+  updateStatus(false, 'Winch...');
+  server  = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE_UUID);
+  txChar  = await service.getCharacteristic(CHAR_TX);
+  rxChar  = await service.getCharacteristic(CHAR_RX);
+  await txChar.startNotifications();
+  txChar.addEventListener('characteristicvaluechanged', handleTelemetry);
+  updateStatus(true);
+}
+
+async function connect() {
+  try {
+    updateStatus(false, 'Winch...');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'Winch' }],
+      optionalServices: [SERVICE_UUID]
+    });
+    await connectToDevice(device);
+  } catch(e) {
+    updateStatus(false);
+    console.error(e);
+  }
+}
+
+function disconnect() {
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  updateStatus(false);
+}
+
+async function connectToXCT(d) {
+  xctDevice = d;
+  updateXCTStatus(false, 'XCT...');
+  xctServer = await xctDevice.gatt.connect();
+  const service = await xctServer.getPrimaryService(XCT_SERVICE_UUID);
+  xctChar   = await service.getCharacteristic(XCT_CHAR_UUID);
+  await xctChar.startNotifications();
+  xctChar.addEventListener('characteristicvaluechanged', handleXCTData);
+  updateXCTStatus(true);
+}
+
+async function connectXCT() {
+  try {
+    updateXCTStatus(false, 'XCT...');
+    xctDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'XCT' }],
+      optionalServices: [XCT_SERVICE_UUID]
+    });
+    await connectToXCT(xctDevice);
+  } catch(e) {
+    updateXCTStatus(false);
+    console.error(e);
+  }
+}
+
+function disconnectXCT() {
+  if (xctDevice && xctDevice.gatt.connected) xctDevice.gatt.disconnect();
+  updateXCTStatus(false);
+}
+
+function handleXCTData(event) {
+  xctBuffer += new TextDecoder().decode(new Uint8Array(event.target.value.buffer));
+  let nl;
+  while ((nl = xctBuffer.indexOf('\n')) !== -1) {
+    const line = xctBuffer.slice(0, nl).trim();
+    xctBuffer  = xctBuffer.slice(nl + 1);
+    if (line) parseNMEA(line);
+  }
+}
+
+function parseNMEA(line) {
+  const star   = line.indexOf('*');
+  const fields = (star !== -1 ? line.slice(0, star) : line).split(',');
+
+  if (fields[0] === '$GPRMC' || fields[0] === '$GNRMC') {
+    if (fields[2] === 'A') {
+      // Speed
+      const knots = parseFloat(fields[7]);
+      if (!isNaN(knots)) {
+        cv.speed = (knots * 1.852).toFixed(1);
+        document.getElementById('xctSpeed').textContent = cv.speed;
       }
-      const altGain   = altBaseline !== null ? +(cv.gpsAlt - altBaseline).toFixed(1) : 0;
-      const climbRate = prevAlt !== null && dt > 0 ? +((cv.gpsAlt - prevAlt) / dt).toFixed(2) : 0;
-      prevAlt = cv.gpsAlt;
-
-      const lineSpeed = prevLine !== null && dt > 0 ? +((cv.lineDistance - prevLine) / dt).toFixed(2) : 0;
-      prevLine = cv.lineDistance;
-
-      const powerKW  = +(cv.amps * cv.vescVolt / 1000).toFixed(3);
-      energyWh      += powerKW * (dt / 3600);
-
-      if (altGain        > maxAltGain) maxAltGain = altGain;
-      if (cv.speed       > maxSpeed)   maxSpeed   = cv.speed;
-      if (climbRate      > maxClimb)   maxClimb   = climbRate;
-      if (powerKW        > maxPower)   maxPower   = powerKW;
-      if (cv.lineDistance > maxLine)   maxLine    = cv.lineDistance;
-      if (cv.amps        > maxAmps)    maxAmps    = cv.amps;
-
-      logRows.push([
-        new Date().toISOString(), elapsed,
-        cv.state, cv.lineState,
-        cv.lineDistance, lineSpeed,
-        altGain, climbRate,
-        cv.speed, cv.amps, cv.vescVolt, powerKW, +energyWh.toFixed(4),
-        cv.rssi, cv.snr, cv.lostPct
-      ].join(','));
-    }
-
-    function downloadCSV() {
-      if (!logRows.length) return;
-      const duration = ((Date.now() - logStart) / 1000).toFixed(0);
-      const eff      = energyWh > 0 ? (maxAltGain / energyWh).toFixed(0) : 'N/A';
-      const dateStr  = logStart.toISOString().slice(0,19).replace('T',' ');
-
-      const summary = [
-        '# Flight: ' + dateStr,
-        '# Duration: ' + duration + 's',
-        '# Max height gained: ' + maxAltGain + ' m',
-        '# Max speed: ' + maxSpeed + ' km/h',
-        '# Max climb rate: ' + maxClimb + ' m/s',
-        '# Max amps: ' + maxAmps + ' A',
-        '# Max power: ' + maxPower + ' kW',
-        '# Total energy: ' + energyWh.toFixed(3) + ' Wh',
-        '# Efficiency: ' + eff + ' m/Wh',
-        '# Max line out: ' + maxLine + ' m',
-        '#'
-      ].join('\n');
-
-      const csv  = summary + '\n' + LOG_HEADER + '\n' + logRows.join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'winch_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    // ── XC Tracer BLE ─────────────────────────────────────────────────────────
-    const XCT_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
-    const XCT_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
-
-    let xctDevice, xctServer, xctChar;
-    let xctBuffer = '';
-
-    const lineStateNames   = ['READY', 'ARMED', 'STOPPED'];
-    const lineStateClasses = ['ready', 'armed', 'stopped'];
-
-    async function connectAll() {
-      document.getElementById('connectBtn').style.display = 'none';
-      await connect();
-      await connectXCT();
-    }
-
-    async function connectToDevice(d) {
-      device = d;
-      updateStatus(false, 'Winch...');
-      server = await device.gatt.connect();
-      const service = await server.getPrimaryService(SERVICE_UUID);
-      txChar = await service.getCharacteristic(CHAR_TX);
-      rxChar = await service.getCharacteristic(CHAR_RX);
-      await txChar.startNotifications();
-      txChar.addEventListener('characteristicvaluechanged', handleTelemetry);
-      updateStatus(true);
-    }
-
-    async function connect() {
-      try {
-        updateStatus(false, 'Winch...');
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'Winch' }],
-          optionalServices: [SERVICE_UUID]
-        });
-        await connectToDevice(device);
-      } catch(e) {
-        updateStatus(false);
-        console.error(e);
-      }
-    }
-
-    function disconnect() {
-      if (device && device.gatt.connected) device.gatt.disconnect();
-      updateStatus(false);
-    }
-
-    async function connectToXCT(d) {
-      xctDevice = d;
-      updateXCTStatus(false, 'XCT...');
-      xctServer = await xctDevice.gatt.connect();
-      const service = await xctServer.getPrimaryService(XCT_SERVICE_UUID);
-      xctChar = await service.getCharacteristic(XCT_CHAR_UUID);
-      await xctChar.startNotifications();
-      xctChar.addEventListener('characteristicvaluechanged', handleXCTData);
-      updateXCTStatus(true);
-    }
-
-    async function connectXCT() {
-      try {
-        updateXCTStatus(false, 'XCT...');
-        xctDevice = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'XCT' }],
-          optionalServices: [XCT_SERVICE_UUID]
-        });
-        await connectToXCT(xctDevice);
-      } catch(e) {
-        updateXCTStatus(false);
-        console.error(e);
-      }
-    }
-
-    function disconnectXCT() {
-      if (xctDevice && xctDevice.gatt.connected) xctDevice.gatt.disconnect();
-      updateXCTStatus(false);
-    }
-
-    function handleXCTData(event) {
-      xctBuffer += new TextDecoder().decode(new Uint8Array(event.target.value.buffer));
-      let nl;
-      while ((nl = xctBuffer.indexOf('\n')) !== -1) {
-        const line = xctBuffer.slice(0, nl).trim();
-        xctBuffer  = xctBuffer.slice(nl + 1);
-        if (line) parseNMEA(line);
-      }
-    }
-
-    function parseNMEA(line) {
-      const star   = line.indexOf('*');
-      const fields = (star !== -1 ? line.slice(0, star) : line).split(',');
-
-      if (fields[0] === '$GPRMC' || fields[0] === '$GNRMC') {
-        if (fields[2] === 'A') {
-          const knots = parseFloat(fields[7]);
-          if (!isNaN(knots)) {
-            cv.speed = (knots * 1.852).toFixed(1);
-            document.getElementById('xctSpeed').textContent = cv.speed;
-          }
+      // Position
+      if (fields[3] && fields[4] && fields[5] && fields[6]) {
+        const lat = nmeaToDecimal(fields[3], fields[4]);
+        const lon = nmeaToDecimal(fields[5], fields[6]);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          currentLat = lat;
+          currentLon = lon;
+          xctHasFix  = true;
+          document.getElementById('setGpsBtn').disabled = false;
+          updateGPSDisplay();
         }
       }
+    } else {
+      xctHasFix = false;
+      document.getElementById('setGpsBtn').disabled = true;
+    }
+  }
 
-      if (fields[0] === '$GPGGA' || fields[0] === '$GNGGA') {
-        if (parseInt(fields[6]) > 0) {
-          const alt = parseFloat(fields[9]);
-          if (!isNaN(alt)) {
-            cv.gpsAlt = Math.round(alt);
-            document.getElementById('xctAlt').textContent = cv.gpsAlt;
-          }
-        }
+  if (fields[0] === '$GPGGA' || fields[0] === '$GNGGA') {
+    if (parseInt(fields[6]) > 0) {
+      const alt = parseFloat(fields[9]);
+      if (!isNaN(alt)) {
+        cv.gpsAlt = Math.round(alt);
+        document.getElementById('xctAlt').textContent = cv.gpsAlt;
       }
     }
+  }
+}
 
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-        document.getElementById('fullscreenBtn').textContent = '⛶ Exit';
-      } else {
-        document.exitFullscreen();
-        document.getElementById('fullscreenBtn').textContent = '⛶ Full';
-      }
-    }
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+    document.getElementById('fullscreenBtn').textContent = '⛶ Exit';
+  } else {
+    document.exitFullscreen();
+    document.getElementById('fullscreenBtn').textContent = '⛶ Full';
+  }
+}
 
-    document.addEventListener('fullscreenchange', () => {
-      document.getElementById('fullscreenBtn').textContent =
-        document.fullscreenElement ? '⛶ Exit' : '⛶ Full';
-    });
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('fullscreenBtn').textContent =
+    document.fullscreenElement ? '⛶ Exit' : '⛶ Full';
+});
 
-    function handleTelemetry(event) {
-      const data = new Uint8Array(event.target.value.buffer);
+// ── Telemetry packet handler ──────────────────────────────────────────────
+function handleTelemetry(event) {
+  const data = new Uint8Array(event.target.value.buffer);
 
-      const state         = data[0];
-      const lineDistance  = (data[1] << 8) | data[2];
-      const lineState     = data[3];
-      const amps_x10      = (data[4] << 8) | data[5];
-      const temp          = data[6];
-      const rssi          = data[7] > 127 ? data[7] - 256 : data[7];
-      const lostPct       = data[9];
-      const winchBattery  = data[10];
-      const remoteBattery = data[11];
-      const charging      = data[12] === 1;
-      const snr           = data[13] > 127 ? data[13] - 256 : data[13];
-      const vescVolt_dV   = (data[14] << 8) | data[15];
+  const state        = data[0];
+  const lineDistance = (data[1] << 8) | data[2];
+  const lineState    = data[3];
+  const amps_x10     = (data[4] << 8) | data[5];
+  const temp         = data[6];
+  const rssi         = data[7] > 127 ? data[7] - 256 : data[7];
+  const lostPct      = data[9];
+  const winchBat     = data[10];
+  const remoteBat    = data[11];
+  const charging     = data[12] === 1;
+  const snr          = data[13] > 127 ? data[13] - 256 : data[13];
+  const vescVolt_dV  = (data[14] << 8) | data[15];
 
-      const ampsVal = (amps_x10 / 10).toFixed(1);
-      const voltVal = (vescVolt_dV / 10).toFixed(1);
+  cv.state        = state;
+  cv.lineDistance = lineDistance;
+  cv.lineState    = lineStateNames[lineState] || '-';
+  cv.amps         = (amps_x10 / 10).toFixed(1);
+  cv.temp         = temp > 0 ? temp : 0;
+  cv.rssi         = rssi;
+  cv.snr          = snr;
+  cv.lostPct      = lostPct;
+  cv.winchBat     = winchBat;
+  cv.remoteBat    = remoteBat;
+  cv.vescVolt     = (vescVolt_dV / 10).toFixed(1);
 
-      document.getElementById('state').textContent         = state;
-      document.getElementById('lineDistance').textContent  = lineDistance;
-      document.getElementById('amps').textContent          = ampsVal;
-      document.getElementById('temp').textContent          = temp > 0 ? temp : 'N/A';
-      document.getElementById('rssi').textContent          = rssi;
-      document.getElementById('lostPackages').textContent  = lostPct + '%';
-      document.getElementById('winchBattery').textContent  = winchBattery;
-      document.getElementById('remoteBattery').textContent = remoteBattery;
-      document.getElementById('snr').textContent           = snr;
-      document.getElementById('vescVoltage').textContent   = voltVal;
+  // State
+  document.getElementById('state').textContent = state;
 
-      // Live force estimate from actual VESC amps + line distance
-      const drumMm    = drumDiamFromLineOut(lineDistance);
-      const forceEst  = calcForce(amps_x10 / 10, drumMm);
-      const forceEl   = document.getElementById('liveForce');
-      forceEl.textContent = '~' + forceEst.toFixed(0) + ' kg';
-      forceEl.className   = 'force-hint' +
-        (forceEst >= PILOT_WEIGHT       ? ' danger' :
-         forceEst >= PILOT_WEIGHT * 0.85 ? ' warn'   : '');
+  // Line distance (tach)
+  document.getElementById('lineDistance').textContent = lineDistance;
 
-      cv.state        = state;
-      cv.lineDistance = lineDistance;
-      cv.lineState    = lineStateNames[lineState] || lineState;
-      cv.amps         = ampsVal;
-      cv.temp         = temp > 0 ? temp : 0;
-      cv.rssi         = rssi;
-      cv.snr          = snr;
-      cv.lostPct      = lostPct;
-      cv.winchBat     = winchBattery;
-      cv.remoteBat    = remoteBattery;
-      cv.vescVolt     = voltVal;
+  // Line state badge
+  const lsEl = document.getElementById('lineState');
+  lsEl.textContent  = cv.lineState;
+  lsEl.className    = 'line-state ' + (lineStateClasses[lineState] || '');
 
-      const lineStateEl      = document.getElementById('lineState');
-      lineStateEl.textContent = lineStateNames[lineState] || 'UNKNOWN';
-      lineStateEl.className   = 'line-state ' + (lineStateClasses[lineState] || '');
+  // Amps + live force hint
+  document.getElementById('amps').textContent = cv.amps;
+  const drumNow  = drumDiamFromLineOut(lineDistance);
+  const forceNow = calcForce(parseFloat(cv.amps), drumNow);
+  const fhEl     = document.getElementById('liveForce');
+  fhEl.textContent = forceNow.toFixed(1) + ' kg';
+  fhEl.className   = 'force-hint' +
+    (forceNow >= PILOT_WEIGHT ? ' danger' : forceNow >= PILOT_WEIGHT * 0.9 ? ' warn' : '');
 
-      const winchBar = document.getElementById('winchBatteryBar');
-      winchBar.style.width = winchBattery + '%';
-      winchBar.className   = winchBattery < 20 ? 'battery-fill low' : 'battery-fill';
+  document.getElementById('temp').textContent = cv.temp > 0 ? cv.temp : 'N/A';
+  document.getElementById('rssi').textContent = rssi;
+  document.getElementById('snr').textContent  = snr;
+  document.getElementById('lostPackages').textContent = lostPct + '%';
+  document.getElementById('vescVoltage').textContent  = cv.vescVolt;
 
-      const remoteBar = document.getElementById('remoteBatteryBar');
-      remoteBar.style.width = remoteBattery + '%';
-      remoteBar.className   = remoteBattery < 20 ? 'battery-fill low' : 'battery-fill';
+  // Batteries
+  const wb = document.getElementById('winchBatteryBar');
+  wb.style.width = winchBat + '%';
+  wb.className   = 'battery-fill' + (winchBat < 20 ? ' low' : '');
+  document.getElementById('winchBattery').textContent = winchBat;
 
-      document.getElementById('chargingIcon').style.display = charging ? 'inline' : 'none';
-    }
+  const rb = document.getElementById('remoteBatteryBar');
+  rb.style.width = remoteBat + '%';
+  rb.className   = 'battery-fill' + (remoteBat < 20 ? ' low' : '');
+  document.getElementById('remoteBattery').textContent = remoteBat;
+  document.getElementById('chargingIcon').style.display = charging ? 'inline' : 'none';
+}
 
-    let winchConnected = false;
-    let xctConnected   = false;
+// ── Status helpers ────────────────────────────────────────────────────────
+let winchConnected = false;
+let xctConnected   = false;
 
-    function updateStatus(connected, msg) {
-      winchConnected = connected;
-      document.getElementById('status').textContent    = msg || 'Winch';
-      document.getElementById('winchDot').className    = 'status-dot ' + (connected ? 'connected' : 'disconnected');
-      updateConnectButton();
-    }
+function updateStatus(connected, msg) {
+  winchConnected = connected;
+  document.getElementById('status').textContent = msg || 'Winch';
+  document.getElementById('winchDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+  updateConnectButton();
+}
 
-    function updateXCTStatus(connected, msg) {
-      xctConnected = connected;
-      document.getElementById('xctStatus').textContent = msg || 'XCT';
-      document.getElementById('xctDot').className      = 'status-dot ' + (connected ? 'connected' : 'disconnected');
-      updateConnectButton();
-    }
+function updateXCTStatus(connected, msg) {
+  xctConnected = connected;
+  document.getElementById('xctStatus').textContent = msg || 'XCT';
+  document.getElementById('xctDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+  if (!connected) {
+    xctHasFix = false;
+    document.getElementById('setGpsBtn').disabled = true;
+  }
+  updateConnectButton();
+}
 
-    function updateConnectButton() {
-      document.getElementById('connectBtn').style.display =
-        (!winchConnected || !xctConnected) ? 'inline-block' : 'none';
-    }
+function updateConnectButton() {
+  document.getElementById('connectBtn').style.display =
+    (!winchConnected || !xctConnected) ? 'inline-block' : 'none';
+}
 
-    // ── Auto-reconnect on page load ───────────────────────────────────────────
-    window.addEventListener('load', async () => {
-      if (!navigator.bluetooth?.getDevices) {
-        updateConnectButton();
-        return;
-      }
-      try {
-        const devices  = await navigator.bluetooth.getDevices();
-        const winchDev = devices.find(d => d.name?.startsWith('Winch'));
-        const xctDev   = devices.find(d => d.name?.startsWith('XCT'));
-        if (winchDev) connectToDevice(winchDev).catch(() => updateStatus(false));
-        if (xctDev)   connectToXCT(xctDev).catch(() => updateXCTStatus(false));
-      } catch(e) { /* ignore */ }
-      setTimeout(updateConnectButton, 3000);
-    });
-  </script>
+// ── Auto-reconnect on page load ───────────────────────────────────────────
+window.addEventListener('load', async () => {
+  if (!navigator.bluetooth?.getDevices) {
+    updateConnectButton();
+    return;
+  }
+  try {
+    const devices  = await navigator.bluetooth.getDevices();
+    const winchDev = devices.find(d => d.name?.startsWith('Winch'));
+    const xctDev   = devices.find(d => d.name?.startsWith('XCT'));
+    if (winchDev) connectToDevice(winchDev).catch(() => updateStatus(false));
+    if (xctDev)   connectToXCT(xctDev).catch(() => updateXCTStatus(false));
+  } catch(e) { /* ignore */ }
+  setTimeout(updateConnectButton, 3000);
+});
+</script>
 </body>
 </html>
