@@ -234,4 +234,77 @@ throughout the entire tow. Raising ERPM further (up to ~23,000 at 84V) would giv
 | 76.7V rest| 21,236               | 52 km/h             | 24 km/h              |
 ```
 
-Setting ERPM above these values has no effect -- motor back-EMF prevents higher speed.
+Setting ERPM above these values has no effect -- motor back-EMF prevents higher speed...    remote upgrade  how you feel about percent ?
+The percentage calculation is wrong for this use case. The floor is 3.40V which is too high — it throws away the bottom chunk of the real battery range. But honestly, LiPo voltage-to-percent is fundamentally noisy regardless:
+
+The relationship is non-linear (flat in the middle, steep at the ends)
+It's heavily load-dependent — voltage sags under TX/LoRa bursts
+Under charge it's meaningless — voltage is inflated by the charger, not reflecting true SoC
+My honest recommendation:
+
+While charging → just show charging + voltage, drop the %
+While on battery → smooth the ADC (4-sample rolling average) + use a better curve with 3.0V floor
+Below ~3.5V → show a low battery warning regardless of %
+The % number as it stands is misleading more than it's helpful. A user seeing "7%" might think they have almost nothing left when they actually have 30 min of runtime left, or vice versa.
+
+Want me to fix the curve and add the averaging, or is the % display mostly for debugging anyway?
+
+even after a full night change before inciden it never showed more than 47 % tracks?
+That's a smoking gun. It tells us two bugs are compounding:
+
+The nRF52840's SAADC reference isn't 3.3V — it's actually ~3.6V internally. The code uses 3.3f which makes every voltage read ~8% too low.
+
+Working backwards from your 47% max:
+
+47% on a 3.40–4.20V scale = 3.776V displayed
+But actual full-charge = 4.2V
+Ratio: 4.2 × (3.3 / 3.67) = 3.776V → actual ADC reference ≈ 3.67V
+So you have:
+
+Wrong ADC reference — 3.3f should be ~3.6f → voltage reads low
+Wrong floor — 3.40V floor is too high, cuts off the bottom third
+Both together = max ~47%, never 100%.
+
+The fix in main.cpp is two lines:
+
+
+float readRemoteBatteryVoltage() {
+  int raw = analogRead(PIN_VBAT);
+  return raw * 3.6f / 1023.0f * (1510.0f / 510.0f);  // was 3.3f
+}
+
+int voltageToPercent(float v) {
+  if (v >= 4.20f) return 100;
+  if (v <= 3.00f) return 0;                            // was 3.40f
+  return (int)((v - 3.00f) / (4.20f - 3.00f) * 100.0f);
+}
+Want me to apply it? When you next charge to full you should see close to 100%.
+
+summorize this for a todo
+ParaWinch Remote — TODO
+
+Battery fixes (code)
+
+ Fix ADC reference: 3.3f → 3.6f in readRemoteBatteryVoltage() — voltage reads 8% low
+ Fix % floor: 3.40V → 3.00V in voltageToPercent() — was capping at ~47%
+ Add 4-sample ADC rolling average to reduce % jitter
+Deep sleep (code)
+
+ Implement 30-min idle → system-off deep sleep
+ Wake on either button press (D0 / D6 GPIO sense)
+ Safety rule: only allow sleep when desiredState == 0
+ Send state=0 to winch before entering sleep
+Hardware
+
+ Monitor current 902830 LiPo charge to full — assess capacity after recovery from deep discharge
+ If runtime is <50% of expected after full charge, replace battery
+ Consider 803030 or 902530 as drop-in replacement (~600mAh, JST-PH 2.0mm)
+[BAT] 3.78V  47%  charging
+That's actually full charge — this confirms the diagnosis perfectly.
+
+Working backwards with the ADC correction:
+3.78V × (3.67 / 3.3) = **4.20V actual**
+
+The battery is at 4.2V — fully charged. The wrong ADC reference is making it display as 3.78V / 47%.
+
+Battery is salvaged. Ready to apply the two-line fix?
