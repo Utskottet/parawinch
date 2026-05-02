@@ -285,9 +285,9 @@ ParaWinch Remote — TODO
 
 Battery fixes (code)
 
- Fix ADC reference: 3.3f → 3.6f in readRemoteBatteryVoltage() — voltage reads 8% low
- Fix % floor: 3.40V → 3.00V in voltageToPercent() — was capping at ~47%
- Add 4-sample ADC rolling average to reduce % jitter
+- [x] Fix ADC reference: 3.3f → 3.6f in readRemoteBatteryVoltage() — voltage reads 8% low (fixed 2026-05-02, confirmed 4.13V 93% charging)
+- [x] Fix % floor: 3.40V → 3.00V in voltageToPercent() — was capping at ~47% (fixed 2026-05-02)
+- [ ] Add 4-sample ADC rolling average to reduce % jitter
 Deep sleep (code)
 
  Implement 30-min idle → system-off deep sleep

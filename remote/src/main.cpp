@@ -76,15 +76,15 @@ void processMetricsPacket(const MetricsPacket* m);
 #define CHG_CURR_PIN     22   // P0.22, OUTPUT, LOW=100mA
 
 float readRemoteBatteryVoltage() {
-  // 10-bit ADC, 3.3V ref, 1MΩ:510kΩ divider
+  // 10-bit ADC, nRF52840 SAADC internal ref ~3.6V, 1MΩ:510kΩ divider
   int raw = analogRead(PIN_VBAT);
-  return raw * 3.3f / 1023.0f * (1510.0f / 510.0f);
+  return raw * 3.6f / 1023.0f * (1510.0f / 510.0f);
 }
 
 int voltageToPercent(float v) {
   if (v >= 4.20f) return 100;
-  if (v <= 3.40f) return 0;
-  return (int)((v - 3.40f) / (4.20f - 3.40f) * 100.0f);
+  if (v <= 3.00f) return 0;
+  return (int)((v - 3.00f) / (4.20f - 3.00f) * 100.0f);
 }
 
 // ─── MetricsPacket handler (called from both sendCmd loop and main loop) ──────
