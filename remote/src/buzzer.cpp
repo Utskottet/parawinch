@@ -94,6 +94,22 @@ void BuzzerController::playJumpToZero() {
   startTone(3500);
 }
 
+void BuzzerController::playSleep() {
+  // Obnoxious alarm: rapid 2800/800 Hz warble x8, then descending sweep
+  buzzerState     = BUZZER_SLEEP;
+  patternStep     = 0;
+  patternStepTime = millis();
+  startTone(2800);
+}
+
+void BuzzerController::playWake() {
+  // Rising chime: 1200 → 2000 → 3500 Hz
+  buzzerState     = BUZZER_WAKE;
+  patternStep     = 0;
+  patternStepTime = millis();
+  startTone(1200);
+}
+
 void BuzzerController::setStateIndicator(uint8_t state) {
   _seqState = (state > 6) ? 6 : state;
   if (_seqState == 0) {
@@ -185,6 +201,31 @@ void BuzzerController::update() {
           buzzerState   = BUZZER_ENDING;
           buzzerEndTime = now + TONE_END_DELAY;
         }
+      }
+      break;
+
+    case BUZZER_SLEEP:
+      // 8 warble steps (2800/800 Hz, 60 ms each) then descending sweep to 300 Hz
+      switch (patternStep) {
+        case 0: if (now >= patternStepTime + 60) { startTone(800);  patternStep++; patternStepTime = now; } break;
+        case 1: if (now >= patternStepTime + 60) { startTone(2800); patternStep++; patternStepTime = now; } break;
+        case 2: if (now >= patternStepTime + 60) { startTone(800);  patternStep++; patternStepTime = now; } break;
+        case 3: if (now >= patternStepTime + 60) { startTone(2800); patternStep++; patternStepTime = now; } break;
+        case 4: if (now >= patternStepTime + 60) { startTone(800);  patternStep++; patternStepTime = now; } break;
+        case 5: if (now >= patternStepTime + 60) { startTone(2800); patternStep++; patternStepTime = now; } break;
+        case 6: if (now >= patternStepTime + 60) { startTone(800);  patternStep++; patternStepTime = now; } break;
+        case 7: if (now >= patternStepTime + 60) { playDownwardSweep(2800, 300, 500); } break;
+      }
+      break;
+
+    case BUZZER_WAKE:
+      // Rising chime: 1200 → gap → 2000 → gap → 3500 Hz
+      switch (patternStep) {
+        case 0: if (now >= patternStepTime + 70)  { stopTone();      patternStep++; patternStepTime = now; } break;
+        case 1: if (now >= patternStepTime + 25)  { startTone(2000); patternStep++; patternStepTime = now; } break;
+        case 2: if (now >= patternStepTime + 70)  { stopTone();      patternStep++; patternStepTime = now; } break;
+        case 3: if (now >= patternStepTime + 25)  { startTone(3500); patternStep++; patternStepTime = now; } break;
+        case 4: if (now >= patternStepTime + 130) { buzzerState = BUZZER_ENDING; buzzerEndTime = now + TONE_END_DELAY; } break;
       }
       break;
 

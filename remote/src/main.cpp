@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <RadioLib.h>
 #include <Button2.h>
+#include <nrf_gpio.h>
 #include "utilities.h"
 #include "lorastruct.h"
 #include "buzzer.h"
@@ -40,6 +41,33 @@ uint8_t confirmedState = 0;
 
 volatile bool metricsDirty = false;
 uint32_t buttonEventCounter = 0;
+
+// ─── Deep sleep ───────────────────────────────────────────────────────────────
+static const uint32_t SLEEP_TIMEOUT_MS = 30UL * 60UL * 1000UL;  // 30 minutes
+static uint32_t lastActivityTime       = 0;
+
+void enterDeepSleep() {
+  DBGF("[SLEEP] Entering System OFF — %lu ms idle", millis() - lastActivityTime);
+  Serial.flush();
+
+  // Play obnoxious sleep alarm and block until it finishes
+  buzzer.playSleep();
+  while (buzzer.isPlaying()) {
+    buzzer.update();
+    delay(1);
+  }
+  noTone(BUZZER_PIN);
+
+  // Put LoRa to sleep (prevents ~4 mA draw in System OFF)
+  if (loraReady) lora.sleep();
+
+  // Configure both buttons as wake sources (active LOW, pullup already on)
+  nrf_gpio_cfg_sense_input(g_ADigitalPinMap[BTN_UP_PIN], NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+  nrf_gpio_cfg_sense_input(g_ADigitalPinMap[BTN_DN_PIN], NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+
+  // Enter System OFF — never returns; wake = full reset via setup()
+  sd_power_system_off();
+}
 
 // ─── DOWN button state ────────────────────────────────────────────────────────
 struct SimpleButtonState {
@@ -197,6 +225,7 @@ bool sendCmd(uint8_t st) {
 
 // ─── UP button handler ────────────────────────────────────────────────────────
 void onUpClick(Button2& b) {
+  lastActivityTime = millis();
   buttonEventCounter++;
   buzzer.playButtonPress();
   if (desiredState < 6) {
@@ -240,6 +269,7 @@ void processDownButton() {
           downBtn.lastClickTime = now;
 
           if (downBtn.clickCount >= 2) {
+            lastActivityTime = millis();
             buttonEventCounter++;
             DBGF("[BTN] DN_EMERGENCY #%lu  desired:%u→0", buttonEventCounter, desiredState);
             desiredState = 0;
@@ -254,6 +284,7 @@ void processDownButton() {
 
   // Single-click: process after double-click window expires
   if (downBtn.clickCount == 1 && (now - downBtn.lastClickTime) > DOUBLE_CLICK_WINDOW) {
+    lastActivityTime = millis();
     buttonEventCounter++;
     if (desiredState > 0) {
       uint8_t old = desiredState--;
@@ -323,6 +354,9 @@ void setup() {
     DBGF("[LoRa] init failed (code %d) — buttons/BLE still work", loraErr);
   }
   DBG("UP: increment state  |  DN single: decrement  |  DN double: emergency→0");
+
+  lastActivityTime = millis();
+  buzzer.playWake();
 }
 
 // ─── loop() ──────────────────────────────────────────────────────────────────
@@ -369,7 +403,16 @@ void loop() {
   // Heartbeat BLE send every 2 s (keeps screen live when no LoRa traffic)
   static uint32_t lastHeartbeat = 0;
   if (now - lastHeartbeat >= 2000) {
+    uint32_t elapsed  = now - lastActivityTime;
+    uint8_t  minsLeft = (elapsed >= SLEEP_TIMEOUT_MS) ? 0
+                      : (uint8_t)((SLEEP_TIMEOUT_MS - elapsed) / 60000UL);
+    bleInterface.setSleepMins(minsLeft);
     bleInterface.sendTelemetry();
     lastHeartbeat = now;
+  }
+
+  // Deep sleep after 30 min of inactivity — only when state is 0
+  if (desiredState == 0 && (now - lastActivityTime) >= SLEEP_TIMEOUT_MS) {
+    enterDeepSleep();
   }
 }

@@ -362,6 +362,7 @@ body {
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
+      <span id="sleepTimer" style="display:none;font-size:10px;margin-left:2px;">sleep 30m</span>
       <button onclick="connectAll()" id="connectBtn" style="display:none">Connect</button>
       <button onclick="toggleSetGPS()" id="setGpsBtn" class="setgps-btn" disabled>Set GPS</button>
       <button onclick="toggleLog()" id="logBtn" class="log-btn">Start Log</button>
@@ -1037,6 +1038,7 @@ function handleTelemetry(event) {
   const charging     = data[12] === 1;
   const snr          = data[13] > 127 ? data[13] - 256 : data[13];
   const vescVolt_dV  = (data[14] << 8) | data[15];
+  const sleepMins    = data[16];
 
   cv.state        = state;
   cv.lineDistance = lineDistance;
@@ -1087,6 +1089,13 @@ function handleTelemetry(event) {
   rb.className   = 'battery-fill' + (remoteBat < 20 ? ' low' : '');
   document.getElementById('remoteBattery').textContent = remoteBat;
   document.getElementById('chargingIcon').style.display = charging ? 'inline' : 'none';
+
+  // Sleep countdown
+  const stEl = document.getElementById('sleepTimer');
+  stEl.style.display = 'inline';
+  stEl.textContent   = 'sleep ' + sleepMins + 'm';
+  stEl.style.color   = sleepMins <= 2  ? '#f44336'
+                     : sleepMins <= 10 ? '#FF9800' : '#666';
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────

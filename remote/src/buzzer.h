@@ -15,6 +15,8 @@ enum BuzzerState {
   BUZZER_SWEEP_DOWN,
   BUZZER_PATTERN_TO_1,
   BUZZER_PATTERN_TO_0,
+  BUZZER_SLEEP,
+  BUZZER_WAKE,
   BUZZER_ENDING
 };
 
@@ -28,6 +30,8 @@ public:
   void playStateChange(uint8_t fromState, uint8_t toState);
   void playJumpToOne();
   void playJumpToZero();
+  void playSleep();   // obnoxious alarm — device going to sleep
+  void playWake();    // rising chime — device woke from sleep
   void setStateIndicator(uint8_t state);
 
   // Call regularly in main loop

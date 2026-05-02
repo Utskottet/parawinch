@@ -44,6 +44,7 @@ public:
   void setWinchBattery(uint8_t pct);
   void setTempController(uint8_t degC);
   void setRemoteCharging(bool charging);
+  void setSleepMins(uint8_t mins);   // minutes until deep sleep (byte [16])
 
   bool sendTelemetry();
   bool isConnected() const { return Bluefruit.connected(); }
@@ -61,6 +62,7 @@ private:
   uint8_t  _remoteBat   = 0;
   bool     _charging    = false;
   uint16_t _vescVolt_dV = 0;
+  uint8_t  _sleepMins   = 30;
 };
 
 extern BLEInterface bleInterface;
