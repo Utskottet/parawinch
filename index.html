@@ -824,7 +824,7 @@ function writeLogRow() {
   const lineSpeed = prevLine !== null && dt > 0 ? +((cv.lineDistance - prevLine) / dt).toFixed(2) : 0;
   prevLine = cv.lineDistance;
 
-  const gpsDist = (gpsAnchor && currentLat !== null)
+  const gpsDist = (gpsAnchor && currentLat !== null && xctHasFix)
     ? Math.round(haversineM(gpsAnchor.lat, gpsAnchor.lon, currentLat, currentLon))
     : '';
 
@@ -897,6 +897,7 @@ async function connectAll() {
 
 async function connectToDevice(d) {
   device = d;
+  device.addEventListener('gattserverdisconnected', () => updateStatus(false));
   updateStatus(false, 'Winch...');
   server  = await device.gatt.connect();
   const service = await server.getPrimaryService(SERVICE_UUID);
@@ -928,6 +929,7 @@ function disconnect() {
 
 async function connectToXCT(d) {
   xctDevice = d;
+  xctDevice.addEventListener('gattserverdisconnected', () => updateXCTStatus(false));
   updateXCTStatus(false, 'XCT...');
   xctServer = await xctDevice.gatt.connect();
   const service = await xctServer.getPrimaryService(XCT_SERVICE_UUID);
@@ -991,8 +993,12 @@ function parseNMEA(line) {
         }
       }
     } else {
-      xctHasFix = false;
+      xctHasFix  = false;
+      currentLat = null;
+      currentLon = null;
       document.getElementById('setGpsBtn').disabled = true;
+      document.getElementById('xctSpeed').textContent = '-';
+      updateGPSDisplay();
     }
   }
 
@@ -1114,8 +1120,13 @@ function updateXCTStatus(connected, msg) {
   document.getElementById('xctStatus').textContent = msg || 'XCT';
   document.getElementById('xctDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
   if (!connected) {
-    xctHasFix = false;
+    xctHasFix  = false;
+    currentLat = null;
+    currentLon = null;
     document.getElementById('setGpsBtn').disabled = true;
+    document.getElementById('xctSpeed').textContent = '-';
+    document.getElementById('xctAlt').textContent   = '-';
+    updateGPSDisplay();
   }
   updateConnectButton();
 }
