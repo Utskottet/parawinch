@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.2</title>
+<title>Winch Remote v2.3</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -125,7 +125,7 @@ body {
 .middle-column {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 8px;
 }
 .medium-card {
@@ -215,6 +215,34 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Signal bars card */
+.sig-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.sig-sublabel { font-size: 9px; color: #aaa; min-width: 26px; }
+.sig-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; flex: 1; }
+.sig-bar { flex: 1; background: #333; border-radius: 1px; }
+.sig-bar:nth-child(1) { height: 25%; }
+.sig-bar:nth-child(2) { height: 50%; }
+.sig-bar:nth-child(3) { height: 75%; }
+.sig-bar:nth-child(4) { height: 100%; }
+.sig-val { font-size: 11px; color: #fff; min-width: 44px; text-align: right; }
+.sig-unit { font-size: 9px; color: #888; margin-left: 1px; }
+
+/* Combined battery card */
+.bat-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.bat-label { font-size: 9px; color: #aaa; min-width: 36px; }
+
+/* Zero alt button */
+.zero-alt-btn {
+  background: #37474F; color: #aaa; border: none;
+  padding: 3px 8px; font-size: 10px; border-radius: 3px;
+  cursor: pointer; margin-top: 4px;
+}
+.zero-alt-btn:hover:not(:disabled) { background: #546E7A; color: #fff; }
+.zero-alt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Line state badge inside state card — slightly smaller */
+.state-linestate { transform: scale(0.85); transform-origin: center; margin-top: 6px; }
 
 /* ── Calculator overlay ──────────────────────────────────────────────────── */
 #calcOverlay {
@@ -358,7 +386,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.2</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.3</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
@@ -377,10 +405,13 @@ body {
       <div class="state-display">
         <div class="state-label">STATE</div>
         <div class="state-value" id="state">-</div>
+        <div class="state-linestate">
+          <div class="line-state ready" id="lineState">READY</div>
+        </div>
       </div>
     </div>
 
-    <!-- MIDDLE: Medium values 2x3 -->
+    <!-- MIDDLE: 2x2 grid -->
     <div class="middle-column">
 
       <!-- Line Distance: split Tach / GPS -->
@@ -403,25 +434,12 @@ body {
       </div>
 
       <div class="medium-card">
-        <div class="medium-label">Line State</div>
-        <div class="line-state ready" id="lineState">READY</div>
-      </div>
-
-      <div class="medium-card">
         <div class="medium-label">Current</div>
         <div>
           <span class="medium-value" id="amps">0</span>
           <span class="medium-unit">A</span>
         </div>
         <div class="force-hint" id="liveForce">-- kg</div>
-      </div>
-
-      <div class="medium-card">
-        <div class="medium-label">Controller Temp</div>
-        <div>
-          <span class="medium-value" id="temp">0</span>
-          <span class="medium-unit">°C</span>
-        </div>
       </div>
 
       <div class="medium-card">
@@ -433,57 +451,84 @@ body {
       </div>
 
       <div class="medium-card">
-        <div class="medium-label">GPS Alt</div>
+        <div class="medium-label">GPS Height</div>
         <div>
           <span class="medium-value" id="xctAlt">-</span>
           <span class="medium-unit">m</span>
         </div>
+        <button onclick="zeroAlt()" id="zeroAltBtn" class="zero-alt-btn" disabled>Zero</button>
       </div>
     </div>
 
-    <!-- RIGHT: Standard values -->
+    <!-- RIGHT: compact cards -->
     <div class="right-column">
+
+      <!-- Signal: RSSI + SNR with bars -->
       <div class="standard-card">
-        <div class="standard-label">RSSI</div>
-        <div>
-          <span class="standard-value" id="rssi">0</span>
-          <span class="standard-unit">dBm</span>
+        <div class="standard-label">SIGNAL</div>
+        <div class="sig-row">
+          <span class="sig-sublabel">RSSI</span>
+          <div class="sig-bars" id="rssiBars">
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+          </div>
+          <span class="sig-val"><span id="rssi">0</span><span class="sig-unit"> dBm</span></span>
+        </div>
+        <div class="sig-row">
+          <span class="sig-sublabel">SNR</span>
+          <div class="sig-bars" id="snrBars">
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+            <span class="sig-bar"></span>
+          </div>
+          <span class="sig-val"><span id="snr">0</span><span class="sig-unit"> dB</span></span>
         </div>
       </div>
+
+      <!-- Lost packages -->
       <div class="standard-card">
-        <div class="standard-label">Lost Packages</div>
+        <div class="standard-label">Lost Packets</div>
         <div>
           <span class="standard-value" id="lostPackages">0</span>
-        </div>
-      </div>
-      <div class="standard-card">
-        <div class="standard-label">Winch Battery</div>
-        <div class="battery-container">
-          <div class="battery-bar">
-            <div class="battery-fill" id="winchBatteryBar" style="width:0%"></div>
-          </div>
-          <span class="standard-value" id="winchBattery">0</span>
           <span class="standard-unit">%</span>
         </div>
       </div>
+
+      <!-- Controller temp -->
       <div class="standard-card">
-        <div class="standard-label">Remote Battery</div>
-        <div class="battery-container">
-          <div class="battery-bar">
+        <div class="standard-label">Ctrl Temp</div>
+        <div>
+          <span class="standard-value" id="temp">-</span>
+          <span class="standard-unit">°C</span>
+        </div>
+      </div>
+
+      <!-- Battery: Winch + Remote combined -->
+      <div class="standard-card">
+        <div class="standard-label">BATTERY</div>
+        <div class="bat-row">
+          <span class="bat-label">Winch</span>
+          <div class="battery-bar" style="flex:1">
+            <div class="battery-fill" id="winchBatteryBar" style="width:0%"></div>
+          </div>
+          <span class="standard-value" id="winchBattery" style="font-size:14px">0</span>
+          <span class="standard-unit">%</span>
+        </div>
+        <div class="bat-row">
+          <span class="bat-label">Remote</span>
+          <div class="battery-bar" style="flex:1">
             <div class="battery-fill" id="remoteBatteryBar" style="width:0%"></div>
           </div>
-          <span class="standard-value" id="remoteBattery">0</span>
+          <span class="standard-value" id="remoteBattery" style="font-size:14px">0</span>
           <span class="standard-unit">%</span>
           <span class="charging-icon" id="chargingIcon" style="display:none">⚡</span>
         </div>
       </div>
-      <div class="standard-card">
-        <div class="standard-label">SNR</div>
-        <div>
-          <span class="standard-value" id="snr">0</span>
-          <span class="standard-unit">dB</span>
-        </div>
-      </div>
+
+      <!-- Winch voltage (placeholder until telemetry wired up) -->
       <div class="standard-card">
         <div class="standard-label">Winch Voltage</div>
         <div>
@@ -502,7 +547,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.2</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.3</div>
       </div>
     </div>
 
@@ -636,10 +681,11 @@ function maxSafeAmps(drumMm) {
 }
 
 // ── GPS anchor & haversine ────────────────────────────────────────────────
-let gpsAnchor = null;   // { lat, lon } in decimal degrees
-let currentLat = null;
-let currentLon = null;
-let xctHasFix  = false;
+let gpsAnchor    = null;   // { lat, lon } in decimal degrees
+let currentLat   = null;
+let currentLon   = null;
+let xctHasFix    = false;
+let altDisplayZero = null; // display-only altitude zero reference (does NOT affect logs)
 
 function haversineM(lat1, lon1, lat2, lon2) {
   const R  = 6371000;
@@ -689,6 +735,38 @@ function updateGPSDisplay() {
   const dist = haversineM(gpsAnchor.lat, gpsAnchor.lon, currentLat, currentLon);
   el.textContent = Math.round(dist);
   el.classList.remove('gps-no-anchor');
+}
+
+// ── Signal bars ───────────────────────────────────────────────────────────
+// Thresholds calibrated to field data (SX1262, SF9, BW125, ~1 km range)
+function signalLevel(rssi) {
+  if (rssi > -80)  return 4;
+  if (rssi > -95)  return 3;
+  if (rssi > -105) return 2;
+  if (rssi > -115) return 1;
+  return 0;
+}
+
+function snrLevel(snr) {
+  if (snr > 8)  return 4;
+  if (snr > 4)  return 3;
+  if (snr > 0)  return 2;
+  if (snr > -6) return 1;
+  return 0;
+}
+
+function updateSignalBars(barId, level) {
+  const bars = document.getElementById(barId).querySelectorAll('.sig-bar');
+  bars.forEach((bar, i) => {
+    bar.style.background = (i < level) ? '#4CAF50' : '#333';
+  });
+}
+
+// ── Zero GPS height (display only) ───────────────────────────────────────
+function zeroAlt() {
+  if (!xctHasFix || cv.gpsAlt === 0) return;
+  altDisplayZero = cv.gpsAlt;
+  document.getElementById('xctAlt').textContent = '0';
 }
 
 // ── Calculator overlay ────────────────────────────────────────────────────
@@ -993,10 +1071,12 @@ function parseNMEA(line) {
         }
       }
     } else {
-      xctHasFix  = false;
-      currentLat = null;
-      currentLon = null;
-      document.getElementById('setGpsBtn').disabled = true;
+      xctHasFix      = false;
+      currentLat     = null;
+      currentLon     = null;
+      altDisplayZero = null;
+      document.getElementById('setGpsBtn').disabled  = true;
+      document.getElementById('zeroAltBtn').disabled = true;
       document.getElementById('xctSpeed').textContent = '-';
       updateGPSDisplay();
     }
@@ -1007,7 +1087,11 @@ function parseNMEA(line) {
       const alt = parseFloat(fields[9]);
       if (!isNaN(alt)) {
         cv.gpsAlt = Math.round(alt);
-        document.getElementById('xctAlt').textContent = cv.gpsAlt;
+        document.getElementById('zeroAltBtn').disabled = false;
+        const displayAlt = altDisplayZero !== null
+          ? cv.gpsAlt - altDisplayZero
+          : cv.gpsAlt;
+        document.getElementById('xctAlt').textContent = displayAlt;
       }
     }
   }
@@ -1081,6 +1165,8 @@ function handleTelemetry(event) {
   document.getElementById('temp').textContent = cv.temp > 0 ? cv.temp : 'N/A';
   document.getElementById('rssi').textContent = rssi;
   document.getElementById('snr').textContent  = snr;
+  updateSignalBars('rssiBars', signalLevel(rssi));
+  updateSignalBars('snrBars',  snrLevel(snr));
   document.getElementById('lostPackages').textContent = lostPct + '%';
   document.getElementById('vescVoltage').textContent  = cv.vescVolt;
 
@@ -1141,10 +1227,12 @@ function updateXCTStatus(connected, msg) {
   document.getElementById('xctStatus').textContent = msg || 'XCT';
   document.getElementById('xctDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
   if (!connected) {
-    xctHasFix  = false;
-    currentLat = null;
-    currentLon = null;
-    document.getElementById('setGpsBtn').disabled = true;
+    xctHasFix      = false;
+    currentLat     = null;
+    currentLon     = null;
+    altDisplayZero = null;
+    document.getElementById('setGpsBtn').disabled  = true;
+    document.getElementById('zeroAltBtn').disabled = true;
     document.getElementById('xctSpeed').textContent = '-';
     document.getElementById('xctAlt').textContent   = '-';
     updateGPSDisplay();
