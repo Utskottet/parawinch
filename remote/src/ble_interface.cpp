@@ -64,7 +64,7 @@ void BLEInterface::setLineState(char c) {
 
 void BLEInterface::setMetrics(uint16_t distance, float current_A, float voltage_V) {
   _distance_m  = distance;
-  _amps_x10    = (uint16_t)(current_A * 10.0f + 0.5f);
+  _amps_x10    = current_A > 0.0f ? (uint16_t)(current_A * 10.0f + 0.5f) : 0;
   _vescVolt_dV = (uint16_t)(voltage_V * 10.0f + 0.5f);
 }
 
