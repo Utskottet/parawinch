@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.1</title>
+<title>Winch Remote v2.2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -358,7 +358,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.1</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.2</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
@@ -502,7 +502,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.1</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.2</div>
       </div>
     </div>
 
@@ -1104,12 +1104,33 @@ function handleTelemetry(event) {
                      : sleepMins <= 10 ? '#FF9800' : '#666';
 }
 
+// ── Wake Lock ─────────────────────────────────────────────────────────────
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if (!navigator.wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch(e) { /* denied or not supported */ }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+
+// Re-acquire if tab becomes visible again while connected
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && winchConnected) requestWakeLock();
+});
+
 // ── Status helpers ────────────────────────────────────────────────────────
 let winchConnected = false;
 let xctConnected   = false;
 
 function updateStatus(connected, msg) {
   winchConnected = connected;
+  connected ? requestWakeLock() : releaseWakeLock();
   document.getElementById('status').textContent = msg || 'Winch';
   document.getElementById('winchDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
   updateConnectButton();
