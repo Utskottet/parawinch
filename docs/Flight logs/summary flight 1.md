@@ -46,6 +46,8 @@ for a future tach offset correction as a function of line-out.
 
 **GPS anchor:** Not set (XCT not connected at log start — no GPS distance column).
 
+**State configuration (confirmed):** State 1=20A, 2=30A, 3=40A, 4=60A, 5=80A, 6=100A
+
 ### Two attempts recorded:
 
 **Attempt 1 (t ≈ 73–107 s):** Aborted launch.

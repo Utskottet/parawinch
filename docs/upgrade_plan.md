@@ -283,6 +283,14 @@ for the full data and reverse-engineering.
 - Confirm the XIAO remote receives and forwards it without sign loss
 - A negative value at the right moment on M5Stack Serial would close the loop
 
+### State configuration (confirmed 2026-05-03)
+
+State 1=20A, 2=30A, 3=40A, 4=60A, 5=80A, 6=100A.
+State 6 (100A) was not used in flight 1. State 5 (80A) peaked at 84A in logs (slight VESC
+overshoot past configured limit). States 2-4 appear noisy in logs because operator steps
+through them quickly during ramp-up — amps in those rows reflect the VESC ramping, not
+steady-state at the configured limit. Always document state config in session summary.
+
 ### Test plan (bench test, do alongside telemetry pipeline work)
 
 1. Hang a known weight on the line (static load -- no pilot)
