@@ -18,6 +18,22 @@ but applied to configurations that do not yet exist on the machine.
 - [x] Confirm pole pairs = 5 by RPM measurement test
 - [x] Confirm Kv = 277 ERPM/V from flux linkage (reliable); discarded noisy 257 value
 
+### Completed 2026-05-02
+- [x] Fix remote battery ADC reference (3.3f → 3.6f) and percent floor (3.40V → 3.00V)
+- [x] Add deep sleep (System OFF ~0.4µA) with 30 min idle timeout, wake on button press
+- [x] Sleep/wake sounds, BLE sleep countdown to app (v2.0)
+- [x] GPS data quality hardened — stale position cleared on fix loss or XCT disconnect (v2.1)
+- [x] Wake Lock added to app to prevent BLE drop on phone screen-off (v2.2)
+
+### Winch telemetry -- incomplete data pipeline (do not remove cards from app yet)
+- `vesc_mV` in MetricsPacket is hardcoded `3700` — placeholder, never real data
+- `can_temperature` reaches M5Stack correctly via CAN ID 9 but is never put into MetricsPacket
+- Lisp reads `get-batt` (pack voltage) but never sends it over CAN — no buffer, no can-send-sid
+- Plan: add CAN ID 10 for voltage in Lisp, receive in CAN.cpp, feed MetricsPacket vesc_mV
+- Plan: add temperature to MetricsPacket (already in LoraStruct, just not populated)
+- Plan: use vesc_mV to drive winch battery % bar in app (linear map, floor/ceiling TBD)
+- Need to confirm: does get-batt return pack voltage or cell voltage, and what is real empty voltage
+
 ### Still open -- current hardware
 - [ ] Repeat 120A crane scale test (43-56 kg range too wide, not reliable)
 - [ ] Verify actual drum width (estimated 214 mm)
