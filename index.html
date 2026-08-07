@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.4</title>
+<title>Winch Remote v2.5</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -386,12 +386,12 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.4</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.5</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
-      <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">XCT</span>
+      <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">GPS</span>
       <span id="sleepTimer" style="display:none;font-size:10px;margin-left:2px;">sleep 30m</span>
-      <button onclick="connectAll()" id="connectBtn" style="display:none">Connect</button>
+      <button onclick="connect()" id="connectBtn" style="display:none">Connect</button>
       <button onclick="toggleSetGPS()" id="setGpsBtn" class="setgps-btn" disabled>Set GPS</button>
       <button onclick="toggleLog()" id="logBtn" class="log-btn">Start Log</button>
       <button onclick="showCalc()" class="calc-btn">Calc</button>
@@ -547,7 +547,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.4</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.5</div>
       </div>
     </div>
 
@@ -684,7 +684,7 @@ function maxSafeAmps(drumMm) {
 let gpsAnchor    = null;   // { lat, lon } in decimal degrees
 let currentLat   = null;
 let currentLon   = null;
-let xctHasFix    = false;
+let gpsHasFix    = false;
 let altDisplayZero = null; // display-only altitude zero reference (does NOT affect logs)
 
 function haversineM(lat1, lon1, lat2, lon2) {
@@ -697,14 +697,30 @@ function haversineM(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function nmeaToDecimal(raw, hemi) {
-  // DDMM.MMMMM or DDDMM.MMMMM
-  const dot = raw.indexOf('.');
-  const deg = parseInt(raw.slice(0, dot - 2), 10);
-  const min = parseFloat(raw.slice(dot - 2));
-  let dec = deg + min / 60;
-  if (hemi === 'S' || hemi === 'W') dec = -dec;
-  return dec;
+// Anchor is persisted so a page reload (Android backgrounding/killing the tab, or a
+// Winch BLE reconnect cycle) never loses the reference point set at the winch.
+const GPS_ANCHOR_STORAGE_KEY = 'parawinch_gps_anchor';
+
+function saveGpsAnchor() {
+  try {
+    if (gpsAnchor) localStorage.setItem(GPS_ANCHOR_STORAGE_KEY, JSON.stringify(gpsAnchor));
+    else localStorage.removeItem(GPS_ANCHOR_STORAGE_KEY);
+  } catch(e) { /* storage unavailable — anchor still works for this session */ }
+}
+
+function loadGpsAnchor() {
+  try {
+    const raw = localStorage.getItem(GPS_ANCHOR_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.lat === 'number' && typeof parsed.lon === 'number') {
+      gpsAnchor = parsed;
+      const btn = document.getElementById('setGpsBtn');
+      btn.textContent = 'GPS Set ✓';
+      btn.classList.add('gps-set');
+      btn.disabled = false;
+    }
+  } catch(e) { /* ignore corrupt storage */ }
 }
 
 function toggleSetGPS() {
@@ -714,13 +730,15 @@ function toggleSetGPS() {
     const btn = document.getElementById('setGpsBtn');
     btn.textContent = 'Set GPS';
     btn.classList.remove('gps-set');
+    saveGpsAnchor();
     updateGPSDisplay();
   } else {
-    if (currentLat === null || !xctHasFix) return;
+    if (currentLat === null || !gpsHasFix) return;
     gpsAnchor = { lat: currentLat, lon: currentLon };
     const btn = document.getElementById('setGpsBtn');
     btn.textContent = 'GPS Set ✓';
     btn.classList.add('gps-set');
+    saveGpsAnchor();
     updateGPSDisplay();
   }
 }
@@ -764,7 +782,7 @@ function updateSignalBars(barId, level) {
 
 // ── Zero GPS height (display only) ───────────────────────────────────────
 function zeroAlt() {
-  if (!xctHasFix || cv.gpsAlt === 0) return;
+  if (!gpsHasFix || cv.gpsAlt === 0) return;
   altDisplayZero = cv.gpsAlt;
   document.getElementById('xctAlt').textContent = '0';
 }
@@ -826,8 +844,12 @@ function updateCalc() {
 const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const CHAR_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const CHAR_RX      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const WINCH_RECONNECT_DELAY_MS = 750;
 
 let device, server, txChar, rxChar;
+let winchReconnecting     = false;
+let winchReconnectTimer   = null;
+let winchManualDisconnect = false;
 
 const cv = {
   state:0, lineDistance:0, lineState:'-', amps:0, temp:0,
@@ -902,7 +924,7 @@ function writeLogRow() {
   const lineSpeed = prevLine !== null && dt > 0 ? +((cv.lineDistance - prevLine) / dt).toFixed(2) : 0;
   prevLine = cv.lineDistance;
 
-  const gpsDist = (gpsAnchor && currentLat !== null && xctHasFix)
+  const gpsDist = (gpsAnchor && currentLat !== null && gpsHasFix)
     ? Math.round(haversineM(gpsAnchor.lat, gpsAnchor.lon, currentLat, currentLon))
     : '';
 
@@ -957,25 +979,20 @@ function downloadCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ── XC Tracer BLE ─────────────────────────────────────────────────────────
-const XCT_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
-const XCT_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
-
-let xctDevice, xctServer, xctChar;
-let xctBuffer = '';
-
 const lineStateNames   = ['READY', 'ARMED', 'STOPPED'];
 const lineStateClasses = ['ready', 'armed', 'stopped'];
 
-async function connectAll() {
-  document.getElementById('connectBtn').style.display = 'none';
-  await connect();
-  await connectXCT();
+// ── Winch GATT (re)connection ────────────────────────────────────────────
+// attachWinchDevice() wires the disconnect listener exactly once per authorized
+// device. openWinchGatt() does the actual GATT/service/characteristic acquisition
+// and is safe to call repeatedly — every reconnect (manual or automatic) re-fetches
+// the server, service, both characteristics, and re-subscribes to notifications.
+function attachWinchDevice(d) {
+  device = d;
+  device.addEventListener('gattserverdisconnected', onWinchDisconnected);
 }
 
-async function connectToDevice(d) {
-  device = d;
-  device.addEventListener('gattserverdisconnected', () => updateStatus(false));
+async function openWinchGatt() {
   updateStatus(false, 'Winch...');
   server  = await device.gatt.connect();
   const service = await server.getPrimaryService(SERVICE_UUID);
@@ -986,115 +1003,130 @@ async function connectToDevice(d) {
   updateStatus(true);
 }
 
+async function connectToDevice(d) {
+  attachWinchDevice(d);
+  await openWinchGatt();
+}
+
 async function connect() {
   try {
     updateStatus(false, 'Winch...');
-    device = await navigator.bluetooth.requestDevice({
+    const d = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'Winch' }],
       optionalServices: [SERVICE_UUID]
     });
-    await connectToDevice(device);
+    await connectToDevice(d);
   } catch(e) {
     updateStatus(false);
     console.error(e);
   }
 }
 
+// Fires on every GATT drop, including Android's frequent background/idle disconnects.
+// A manual disconnect() sets winchManualDisconnect first so this doesn't immediately
+// start fighting the user's own request to disconnect.
+function onWinchDisconnected() {
+  updateStatus(false, 'Winch...');
+  if (winchManualDisconnect) { winchManualDisconnect = false; return; }
+  startWinchReconnectLoop();
+}
+
+// Retries against the same already-authorized BluetoothDevice (never calls
+// requestDevice() here) roughly every 750 ms until the GATT connection succeeds.
+// The winchReconnecting flag guarantees only one loop is ever in flight, so a
+// disconnect event and a visibilitychange check firing close together can't
+// spawn two competing retry loops.
+function startWinchReconnectLoop() {
+  if (winchReconnecting || !device) return;
+  winchReconnecting = true;
+
+  const attempt = async () => {
+    if (!winchReconnecting) return;
+    if (device.gatt.connected) { winchReconnecting = false; return; }
+    try {
+      await openWinchGatt();
+      winchReconnecting = false;
+    } catch(e) {
+      winchReconnectTimer = setTimeout(attempt, WINCH_RECONNECT_DELAY_MS);
+    }
+  };
+  attempt();
+}
+
 function disconnect() {
+  winchManualDisconnect = true;
+  winchReconnecting = false;
+  if (winchReconnectTimer) { clearTimeout(winchReconnectTimer); winchReconnectTimer = null; }
   if (device && device.gatt.connected) device.gatt.disconnect();
   updateStatus(false);
 }
 
-async function connectToXCT(d) {
-  xctDevice = d;
-  xctDevice.addEventListener('gattserverdisconnected', () => updateXCTStatus(false));
-  updateXCTStatus(false, 'XCT...');
-  xctServer = await xctDevice.gatt.connect();
-  const service = await xctServer.getPrimaryService(XCT_SERVICE_UUID);
-  xctChar   = await service.getCharacteristic(XCT_CHAR_UUID);
-  await xctChar.startNotifications();
-  xctChar.addEventListener('characteristicvaluechanged', handleXCTData);
-  updateXCTStatus(true);
+// ── Phone GPS (Geolocation API) ──────────────────────────────────────────
+// Replaces the old XC Tracer BLE GPS puck. Runs independently of the Winch BLE
+// connection/reconnect cycle above, so a Winch drop/reconnect never touches
+// position, speed, altitude, or the anchor.
+let gpsWatchId      = null;
+let lastFixAccuracy = null;
+let lastAltAccuracy = null;
+
+function startPhoneGPS() {
+  if (!navigator.geolocation || gpsWatchId !== null) return;
+  gpsWatchId = navigator.geolocation.watchPosition(handleGeoPosition, handleGeoError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 10000
+  });
 }
 
-async function connectXCT() {
-  try {
-    updateXCTStatus(false, 'XCT...');
-    xctDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'XCT' }],
-      optionalServices: [XCT_SERVICE_UUID]
-    });
-    await connectToXCT(xctDevice);
-  } catch(e) {
-    updateXCTStatus(false);
-    console.error(e);
+function handleGeoPosition(pos) {
+  const c = pos.coords;
+  lastFixAccuracy = c.accuracy;
+  lastAltAccuracy = c.altitudeAccuracy;
+  if (lastFixAccuracy != null && lastFixAccuracy > 50) {
+    console.debug('Phone GPS: poor fix accuracy', lastFixAccuracy, 'm');
+  }
+
+  gpsHasFix  = true;
+  currentLat = c.latitude;
+  currentLon = c.longitude;
+  document.getElementById('setGpsBtn').disabled = false;
+  updateGPSDisplay();
+  updateGpsStatusUI(true);
+
+  // coords.speed is null whenever the device can't derive a velocity (e.g. low
+  // motion, poor fix) — keep the last displayed value instead of writing NaN.
+  if (c.speed !== null && !isNaN(c.speed)) {
+    cv.speed = (c.speed * 3.6).toFixed(1);
+    document.getElementById('xctSpeed').textContent = cv.speed;
+  }
+
+  // coords.altitude is frequently null on Android fixes — keep the last known
+  // good altitude rather than treating a missing reading as zero.
+  if (c.altitude !== null && !isNaN(c.altitude)) {
+    cv.gpsAlt = Math.round(c.altitude);
+    document.getElementById('zeroAltBtn').disabled = false;
+    const displayAlt = altDisplayZero !== null
+      ? cv.gpsAlt - altDisplayZero
+      : cv.gpsAlt;
+    document.getElementById('xctAlt').textContent = displayAlt;
+  } else if (!cv.gpsAlt) {
+    document.getElementById('xctAlt').textContent = 'unavailable';
   }
 }
 
-function disconnectXCT() {
-  if (xctDevice && xctDevice.gatt.connected) xctDevice.gatt.disconnect();
-  updateXCTStatus(false);
+// A transient geolocation error (brief signal loss, timeout) must not wipe
+// currentLat/currentLon/gpsAnchor/cv.speed/cv.gpsAlt — only the live-fix
+// indicator drops, so the last known position/anchor survives until the next
+// good fix arrives.
+function handleGeoError(err) {
+  console.warn('Phone GPS error:', err.message);
+  gpsHasFix = false;
+  updateGpsStatusUI(false);
 }
 
-function handleXCTData(event) {
-  xctBuffer += new TextDecoder().decode(new Uint8Array(event.target.value.buffer));
-  let nl;
-  while ((nl = xctBuffer.indexOf('\n')) !== -1) {
-    const line = xctBuffer.slice(0, nl).trim();
-    xctBuffer  = xctBuffer.slice(nl + 1);
-    if (line) parseNMEA(line);
-  }
-}
-
-function parseNMEA(line) {
-  const star   = line.indexOf('*');
-  const fields = (star !== -1 ? line.slice(0, star) : line).split(',');
-
-  if (fields[0] === '$GPRMC' || fields[0] === '$GNRMC') {
-    if (fields[2] === 'A') {
-      // Speed
-      const knots = parseFloat(fields[7]);
-      if (!isNaN(knots)) {
-        cv.speed = (knots * 1.852).toFixed(1);
-        document.getElementById('xctSpeed').textContent = cv.speed;
-      }
-      // Position
-      if (fields[3] && fields[4] && fields[5] && fields[6]) {
-        const lat = nmeaToDecimal(fields[3], fields[4]);
-        const lon = nmeaToDecimal(fields[5], fields[6]);
-        if (!isNaN(lat) && !isNaN(lon)) {
-          currentLat = lat;
-          currentLon = lon;
-          xctHasFix  = true;
-          document.getElementById('setGpsBtn').disabled = false;
-          updateGPSDisplay();
-        }
-      }
-    } else {
-      xctHasFix      = false;
-      currentLat     = null;
-      currentLon     = null;
-      altDisplayZero = null;
-      document.getElementById('setGpsBtn').disabled  = true;
-      document.getElementById('zeroAltBtn').disabled = true;
-      document.getElementById('xctSpeed').textContent = '-';
-      updateGPSDisplay();
-    }
-  }
-
-  if (fields[0] === '$GPGGA' || fields[0] === '$GNGGA') {
-    if (parseInt(fields[6]) > 0) {
-      const alt = parseFloat(fields[9]);
-      if (!isNaN(alt)) {
-        cv.gpsAlt = Math.round(alt);
-        document.getElementById('zeroAltBtn').disabled = false;
-        const displayAlt = altDisplayZero !== null
-          ? cv.gpsAlt - altDisplayZero
-          : cv.gpsAlt;
-        document.getElementById('xctAlt').textContent = displayAlt;
-      }
-    }
-  }
+function updateGpsStatusUI(active) {
+  document.getElementById('xctStatus').textContent = active ? 'GPS' : 'GPS...';
+  document.getElementById('xctDot').className = 'status-dot ' + (active ? 'connected' : 'disconnected');
 }
 
 function toggleFullscreen() {
@@ -1207,14 +1239,18 @@ function releaseWakeLock() {
   if (wakeLock) { wakeLock.release(); wakeLock = null; }
 }
 
-// Re-acquire if tab becomes visible again while connected
+// Re-acquire wake lock, and kick the Winch reconnect loop, when the app regains focus —
+// this is the common case for a real drop: phone screen was off / Chrome backgrounded
+// the tab and Android tore down the GATT connection while we weren't looking.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && winchConnected) requestWakeLock();
+  if (document.visibilityState === 'visible') {
+    if (winchConnected) requestWakeLock();
+    if (device && !device.gatt.connected) startWinchReconnectLoop();
+  }
 });
 
 // ── Status helpers ────────────────────────────────────────────────────────
 let winchConnected = false;
-let xctConnected   = false;
 
 function updateStatus(connected, msg) {
   winchConnected = connected;
@@ -1224,31 +1260,17 @@ function updateStatus(connected, msg) {
   updateConnectButton();
 }
 
-function updateXCTStatus(connected, msg) {
-  xctConnected = connected;
-  document.getElementById('xctStatus').textContent = msg || 'XCT';
-  document.getElementById('xctDot').className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
-  if (!connected) {
-    xctHasFix      = false;
-    currentLat     = null;
-    currentLon     = null;
-    altDisplayZero = null;
-    document.getElementById('setGpsBtn').disabled  = true;
-    document.getElementById('zeroAltBtn').disabled = true;
-    document.getElementById('xctSpeed').textContent = '-';
-    document.getElementById('xctAlt').textContent   = '-';
-    updateGPSDisplay();
-  }
-  updateConnectButton();
-}
-
 function updateConnectButton() {
-  document.getElementById('connectBtn').style.display =
-    (!winchConnected || !xctConnected) ? 'inline-block' : 'none';
+  // The Connect button now concerns the Winch BLE link only — phone GPS has no
+  // pairing step and starts on its own.
+  document.getElementById('connectBtn').style.display = winchConnected ? 'none' : 'inline-block';
 }
 
 // ── Auto-reconnect on page load ───────────────────────────────────────────
 window.addEventListener('load', async () => {
+  loadGpsAnchor();
+  startPhoneGPS();
+
   if (!navigator.bluetooth?.getDevices) {
     updateConnectButton();
     return;
@@ -1256,9 +1278,10 @@ window.addEventListener('load', async () => {
   try {
     const devices  = await navigator.bluetooth.getDevices();
     const winchDev = devices.find(d => d.name?.startsWith('Winch'));
-    const xctDev   = devices.find(d => d.name?.startsWith('XCT'));
-    if (winchDev) connectToDevice(winchDev).catch(() => updateStatus(false));
-    if (xctDev)   connectToXCT(xctDev).catch(() => updateXCTStatus(false));
+    if (winchDev) {
+      attachWinchDevice(winchDev);
+      openWinchGatt().catch(() => { updateStatus(false); startWinchReconnectLoop(); });
+    }
   } catch(e) { /* ignore */ }
   setTimeout(updateConnectButton, 3000);
 });
