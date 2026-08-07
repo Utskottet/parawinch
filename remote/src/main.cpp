@@ -46,6 +46,18 @@ uint32_t buttonEventCounter = 0;
 static const uint32_t SLEEP_TIMEOUT_MS = 30UL * 60UL * 1000UL;  // 30 minutes
 static uint32_t lastActivityTime       = 0;
 
+// Elapsed time since t, from a fresh millis() read. A button handler earlier in
+// the same loop() iteration can set lastActivityTime a tick after loop()'s cached
+// `now` was captured -- plain `now - lastActivityTime` would then underflow (both
+// are uint32_t) and read as ~49 days idle, firing deep sleep on the very button
+// press that should have reset the timer. The signed subtraction, clamped to 0,
+// makes that structurally impossible: a timestamp that's (even momentarily) in
+// the future relative to "now" always reads as zero elapsed, never as huge.
+uint32_t elapsedSince(uint32_t t) {
+  int32_t d = (int32_t)(millis() - t);
+  return d > 0 ? (uint32_t)d : 0;
+}
+
 void enterDeepSleep() {
   DBGF("[SLEEP] Entering System OFF — %lu ms idle", millis() - lastActivityTime);
   Serial.flush();
@@ -403,7 +415,7 @@ void loop() {
   // Heartbeat BLE send every 2 s (keeps screen live when no LoRa traffic)
   static uint32_t lastHeartbeat = 0;
   if (now - lastHeartbeat >= 2000) {
-    uint32_t elapsed  = now - lastActivityTime;
+    uint32_t elapsed  = elapsedSince(lastActivityTime);
     uint8_t  minsLeft = (elapsed >= SLEEP_TIMEOUT_MS) ? 0
                       : (uint8_t)((SLEEP_TIMEOUT_MS - elapsed) / 60000UL);
     bleInterface.setSleepMins(minsLeft);
@@ -411,8 +423,10 @@ void loop() {
     lastHeartbeat = now;
   }
 
-  // Deep sleep after 30 min of inactivity — only when state is 0
-  if (desiredState == 0 && (now - lastActivityTime) >= SLEEP_TIMEOUT_MS) {
+  // Deep sleep after 30 min of inactivity — only when state is 0.
+  // elapsedSince() guarantees a button press this same iteration can never look
+  // like idle time, no matter how the millis() reads happen to line up.
+  if (desiredState == 0 && elapsedSince(lastActivityTime) >= SLEEP_TIMEOUT_MS) {
     enterDeepSleep();
   }
 }
