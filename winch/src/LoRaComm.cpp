@@ -46,13 +46,13 @@ bool LoRaComm::receiveCmd(CmdPacket& outCmd) {
     if (!rxFlag) return false;
     rxFlag = false;
     uint8_t buf[16];
-    int len = sizeof(buf);
 
     xSemaphoreTake(spiMutex, portMAX_DELAY);
-    int result = lora->readData(buf, len);
+    size_t pktLen = lora->getPacketLength();
+    int result = lora->readData(buf, sizeof(buf));
     xSemaphoreGive(spiMutex);
 
-    if (result == RADIOLIB_ERR_NONE && len >= (int)sizeof(CmdPacket)) {
+    if (result == RADIOLIB_ERR_NONE && pktLen >= sizeof(CmdPacket)) {
         if (buf[0] == 0x01) { // CmdPacket type
             outCmd = *(CmdPacket*)buf;
             xSemaphoreTake(spiMutex, portMAX_DELAY);
@@ -60,9 +60,10 @@ bool LoRaComm::receiveCmd(CmdPacket& outCmd) {
             xSemaphoreGive(spiMutex);
             return true;
         }
-        if (buf[0] == 0x05 && len >= (int)sizeof(ConfigPacket)) {
+        if (buf[0] == 0x05 && pktLen >= sizeof(ConfigPacket)) {
             _lastConfigPacket = *(ConfigPacket*)buf;
             _configPending = true;
+            Serial.printf("[LoRa] Config packet received, len=%d\n", pktLen);
         }
     }
     xSemaphoreTake(spiMutex, portMAX_DELAY);

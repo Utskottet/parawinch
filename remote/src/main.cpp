@@ -403,13 +403,16 @@ void loop() {
     metricsDirty = false;
   }
 
-  // Relay config packet from phone (BLE RX) to winch (LoRa TX)
+  // Relay config packet from phone (BLE RX) to winch (LoRa TX), 3x retry
   ConfigPacket cfgPkt;
   if (loraReady && bleHasPendingConfig(cfgPkt)) {
     DBGF("[CFG] Relaying config to winch: %d %d %d %d %d %d",
          cfgPkt.amps[0], cfgPkt.amps[1], cfgPkt.amps[2],
          cfgPkt.amps[3], cfgPkt.amps[4], cfgPkt.amps[5]);
-    lora.transmit(reinterpret_cast<uint8_t*>(&cfgPkt), sizeof(cfgPkt));
+    for (int attempt = 0; attempt < 3; attempt++) {
+      lora.transmit(reinterpret_cast<uint8_t*>(&cfgPkt), sizeof(cfgPkt));
+      if (attempt < 2) delay(50);
+    }
     lora.startReceive();
   }
 
