@@ -1005,7 +1005,8 @@ const LOG_HEADER =
   'line_distance_m,line_speed_ms,' +
   'gps_dist_m,' +
   'alt_gain_m,climb_rate_ms,' +
-  'speed_kmh,scaled_amps_A,amps_A,voltage_V,power_kW,energy_Wh,' +
+  'speed_kmh,scaled_amps_A,amps_A,force_kg,voltage_V,power_kW,energy_Wh,' +
+  'temp_C,winch_bat_pct,remote_bat_pct,' +
   'rssi_dBm,snr_dB,lost_pct';
 
 let logActive  = false;
@@ -1100,7 +1101,8 @@ function writeLogRow() {
     cv.lineDistance, lineSpeed,
     gpsDist,
     altGain, climbRate,
-    cv.speed, cv.scaledAmps, cv.amps, cv.vescVolt, powerKW, +energyWh.toFixed(4),
+    cv.speed, cv.scaledAmps, cv.amps, cv.forceKg || '', cv.vescVolt, powerKW, +energyWh.toFixed(4),
+    cv.temp, cv.winchBat, cv.remoteBat,
     cv.rssi, cv.snr, cv.lostPct
   ].join(','));
 }
@@ -1111,6 +1113,7 @@ function downloadCSV() {
   const eff      = energyWh > 0 ? (maxAltGain / energyWh).toFixed(0) : 'N/A';
   const dateStr  = logStart.toISOString().slice(0,19).replace('T',' ');
   const summary  = [
+    '# App version: v2.10',
     '# Flight: ' + dateStr,
     '# Duration: ' + duration + 's',
     '# Max height gained: ' + maxAltGain + ' m',
@@ -1129,7 +1132,7 @@ function downloadCSV() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = 'winch_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
+  a.download = 'winch_v2.10_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1358,6 +1361,7 @@ function handleTelemetry(event) {
   document.getElementById('amps').textContent = cv.scaledAmps + ' | ' + cv.amps;
   const drumNow  = drumDiamFromLineOut(lineDistance);
   const forceNow = calcForce(parseFloat(cv.amps), drumNow);
+  cv.forceKg = forceNow > 0 ? Math.round(forceNow) : 0;
   const fhEl     = document.getElementById('liveForce');
   fhEl.textContent = forceNow.toFixed(1) + ' kg';
   fhEl.className   = 'force-hint' +
