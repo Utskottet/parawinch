@@ -25,10 +25,26 @@ void can_setup() {
     twai_start();
 }
 
+void can_send_state_sid(int state) {
+    uint8_t buffer[4] = {0};
+    buffer[0] = (uint8_t)((state >> 24) & 0xFF);
+    buffer[1] = (uint8_t)((state >> 16) & 0xFF);
+    buffer[2] = (uint8_t)((state >> 8) & 0xFF);
+    buffer[3] = (uint8_t)(state & 0xFF);
+    twai_message_t message;
+    message.identifier = 10;
+    message.extd = 0;  // Standard ID (SID) — matches Lisp can-send-sid
+    message.rtr = 0;
+    message.data_length_code = 4;
+    memcpy(message.data, buffer, 4);
+    twai_transmit(&message, pdMS_TO_TICKS(10));
+}
+
 void can_send_message() {
     static unsigned long lastSent = millis();
     if (millis() - lastSent >= 200) {
         send_custom_can_message(1, scaledCurrent);
+        can_send_state_sid(currentState);
         lastSent = millis();
     }
 }

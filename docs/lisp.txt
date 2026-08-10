@@ -6,6 +6,7 @@
 ; Initialize ramping state variables
 (def current (get-current 1))
 (def target-current current)
+(def winch-state 0)           ; Current winch state (0-6), received via CAN SID 10
 (def last-can-time (systime)) ; Watchdog: timestamp of last received CAN command
 
 ; Handler for EID CAN-frames
@@ -19,11 +20,22 @@
     )
 )
 
+; Handler for SID CAN-frames (state from M5Stack)
+(defun proc-sid (id data)
+    (if (= id 10)
+        (progn
+            (setq winch-state (bufget-i32 data 0))
+            (free data)
+        )
+    )
+)
+
 ; Event handler to continuously process incoming CAN messages
 (defun event-handler ()
     (loopwhile t
         (recv
             ((event-can-eid (? id) . (? data)) (proc-eid id data))
+            ((event-can-sid (? id) . (? data)) (proc-sid id data))
             (_ nil)
         )
     )
@@ -32,6 +44,7 @@
 ; Register and enable the event handler
 (event-register-handler (spawn 150 event-handler))
 (event-enable 'event-can-eid)
+(event-enable 'event-can-sid)
 
 ; Main loop
 (loopwhile t
@@ -49,6 +62,11 @@
     (if (< current target-current)
         (if (> (+ current ramp-step) target-current)
             (setq current target-current)))
+
+    ; Speed governor: cap ERPM at 5000 for tensioning (state 0-1 only)
+    (if (and (<= winch-state 1) (> (abs (get-rpm)) 5000))
+        (setq current 0))
+
     (set-current current)
 
     ; Get data
