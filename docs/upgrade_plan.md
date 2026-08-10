@@ -32,6 +32,10 @@ but applied to configurations that do not yet exist on the machine.
       motor current telemetry; verified in flight log `winch_v2.10_2026-08-10-19-48-53.csv`
 - [x] VESC Lisp low-state ERPM limit lowered 5000 → 1500 (commit `2f413a6`) — gentler
       tensioning speeds for states 0-1
+- [x] VESC ERPM **max** raised to **30,000** (set in VESC Tool, not in code). Note: physics
+      ceiling at 84V is 23,268 ERPM, so 30,000 is headroom rather than a real reachable speed
+      — motor will run up to whatever back-EMF allows. Gear change to 50T still pending
+      (see section further down); recalculate real max speeds once gear is installed.
 - [x] Bench validation of drum comp at spoofed line-out 435m and 867m (Edvin's
       tape-line-to-drum + VESC-Tool-spin encoder trick)
 - [x] Stepper limit-switch rewrite — release-edge gate + FALLING-edge GPIO ISR + display
@@ -83,8 +87,8 @@ Next steps:
       originally planned in the section below — that plan is superseded).
 - [x] Code updated to match: `DRUM_CORE_DIAM = 150.0f` in `winch/src/main.cpp`.
 - [x] Full drum still 265 mm (flange unchanged).
-- [ ] Raise ERPM (currently 11000) — decide new max given actual 150 mm core, not the 18000
-      target that assumed 185 mm. Recompute physics ceiling before setting.
+- [x] VESC ERPM max raised to 30,000 (2026-08-10). Above physics ceiling (23,268 at 84V) so
+      motor will hit back-EMF limit before this — effectively "no software limit."
 - Note: the "Drum Spacer: 120 mm → 185 mm Empty Drum" section further down is the
   *superseded plan*, kept for reference. Real state is 120 → 150 mm.
 
