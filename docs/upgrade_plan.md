@@ -25,6 +25,37 @@ but applied to configurations that do not yet exist on the machine.
 - [x] GPS data quality hardened — stale position cleared on fix loss or XCT disconnect (v2.1)
 - [x] Wake Lock added to app to prevent BLE drop on phone screen-off (v2.2)
 
+### Completed 2026-08-10
+- [x] Drum diameter compensation (in M5Stack, `winch/src/main.cpp`, commit `cd8b31f`) — see
+      updated status in "Still open -- current hardware" section below
+- [x] VESC Lisp `(get-current N)` → `(get-current)` fix (commit `af2fdc6`) — restored real
+      motor current telemetry; verified in flight log `winch_v2.10_2026-08-10-19-48-53.csv`
+- [x] VESC Lisp low-state ERPM limit lowered 5000 → 1500 (commit `2f413a6`) — gentler
+      tensioning speeds for states 0-1
+- [x] Bench validation of drum comp at spoofed line-out 435m and 867m (Edvin's
+      tape-line-to-drum + VESC-Tool-spin encoder trick)
+- [x] Stepper limit-switch rewrite — release-edge gate + FALLING-edge GPIO ISR + display
+      hysteresis (commits `881f459`, `2f413a6`). **NOT fully resolved — see stepper hang
+      section below.**
+
+### Stepper level-wind hang -- HIGH PRIORITY, SAFETY (open since 2026-08-10)
+
+Level-wind stepper hangs occasionally since the drum-comp v2.7 changes (2026-08-10 12:55).
+Multiple fix attempts this session made it happen less often but did not eliminate it.
+Latest data point: on-LCD diagnostic read `S:0 R:21 D:9072ms BT:0` at hang time —
+`motorState=IDLE` reached cleanly via the centering path, meaning `buttonToggled` went 1→0
+without the user pressing Button A. Suspects:
+- Phantom Button A press on the M5Stack (button contact wear / noise)
+- Mechanical/electrical noise on the level-wind wiring inducing something upstream
+- Undiagnosed code path resetting `buttonToggled`
+
+Next steps:
+- [ ] Catch a hang and read the on-LCD diagnostic line (cyan, Y=195) *before* pressing
+      anything. Values are `S:motorState R:reversalCount D:msSinceLastReverse BT:buttonToggled`
+- [ ] Consider adding an on-LCD Button-A press counter to detect phantom presses
+- [ ] If phantom presses confirmed: hardware button replacement or software debounce increase
+- [ ] Once resolved, remove the temporary on-LCD diagnostic line (Y=195) from `winch/src/main.cpp`
+
 ### Winch telemetry -- incomplete data pipeline (do not remove cards from app yet)
 - `vesc_mV` in MetricsPacket is hardcoded `3700` — placeholder, never real data
 - `can_temperature` reaches M5Stack correctly via CAN ID 9 but is never put into MetricsPacket
@@ -39,8 +70,13 @@ but applied to configurations that do not yet exist on the machine.
 - [ ] Verify actual drum width (estimated 214 mm)
 - [ ] Confirm line-out tracking method (VESC get-dist or encoder)
 - [ ] Add MOSFET temp telemetry logging during real tows
-- [ ] Implement drum diameter compensation in Lisp using line-out estimate -- HIGH PRIORITY:
-      without compensation, fixed current significantly overloads pilot at tow start vs mid-tow
+- [x] ~~Implement drum diameter compensation in Lisp using line-out estimate~~
+      **Implemented in M5Stack (not Lisp) — commit `cd8b31f`, 2026-08-10.** Formula in
+      `winch/src/main.cpp`: `scaledCurrent = base × (drumDiam / 265mm)`, area-model radius.
+      Validated end-to-end 2026-08-10 evening — bench test at 435m and 867m line out matched
+      theory (see log `docs/Flight logs/winch_v2.10_2026-08-10-19-48-53.csv`, and CLAUDE.md
+      session handoff). NOTE: current constants assume core=150mm, full=265mm — the drum spacer
+      section below plans a 185mm core, which will need `DRUM_CORE_DIAM` updated in main.cpp.
 
 ### Drum spacer (current gear, immediate improvement) -- IN PROGRESS
 - [ ] 3D print cylindrical spacer: 120 mm bore → 185 mm OD
@@ -52,9 +88,13 @@ but applied to configurations that do not yet exist on the machine.
 ### Live tow logging -- after spacer install
 - [ ] Log real tows: ERPM, motor current, battery voltage, MOSFET temp, duty cycle
 - [ ] Log speed and height (GPS or barometric)
-- [ ] Verify estimated drum diameter matches line-out model
+- [x] ~~Verify estimated drum diameter matches line-out model~~ — bench test 2026-08-10
+      confirmed the area-model formula at 435m and 867m spoofed line-out (see CLAUDE.md
+      session handoff and flight log). **Field test with real line-out still pending.**
 - [ ] Check MOSFET temps under sustained load -- add temp logging if not already active
-- [ ] Use logs to validate or correct force model before implementing Lisp compensation
+- [x] ~~Use logs to validate or correct force model before implementing Lisp compensation~~
+      Compensation is in M5Stack, not Lisp — validated at bench, force model validation with
+      real crane scale at various line-out lengths still pending.
 
 ### Gear change for B class towing
 - [ ] Laser-cut 50T drum pulley (8M pitch, ≥20mm wide, PC layers)
