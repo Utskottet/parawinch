@@ -60,11 +60,15 @@ Next steps:
 - [ ] If phantom presses confirmed: hardware button replacement or software debounce increase
 - [ ] Once resolved, remove the temporary on-LCD diagnostic line (Y=195) from `winch/src/main.cpp`
 
-### Winch telemetry -- incomplete data pipeline (do not remove cards from app yet)
+### Winch telemetry -- incomplete data pipeline — PRIORITY next code session
 - `vesc_mV` in MetricsPacket is hardcoded `3700` — placeholder, never real data
 - `can_temperature` reaches M5Stack correctly via CAN ID 9 but is never put into MetricsPacket
 - Lisp reads `get-batt` (pack voltage) but never sends it over CAN — no buffer, no can-send-sid
-- Plan: add CAN ID 10 for voltage in Lisp, receive in CAN.cpp, feed MetricsPacket vesc_mV
+- Plan: add **CAN ID 11** (10 is already used for state M5Stack→VESC) for voltage in Lisp,
+  send as dV (V×10) int32, receive in CAN.cpp as `can_voltage_dV`, feed `m.vesc_mV =
+  can_voltage_dV * 100` at both MetricsPacket build sites. Also clean up the `_mV` vs `_dV`
+  name mismatch — BLE packet [14-15] parses as `vescVolt_dV`, so the field name is
+  currently wrong end-to-end.
 - Plan: add temperature to MetricsPacket (already in LoraStruct, just not populated)
 - Plan: use vesc_mV to drive winch battery % bar in app (linear map, floor/ceiling TBD)
 - Need to confirm: does get-batt return pack voltage or cell voltage, and what is real empty voltage

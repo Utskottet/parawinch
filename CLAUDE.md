@@ -127,10 +127,10 @@ parawinch/
 
 ### Open TODO (carry into next session)
 1. **Stepper hang root cause (HIGH priority, safety)** — inspect why `buttonToggled` flips to 0 unexpectedly. Suspects: (a) M5Stack Button A wearing / phantom press, (b) mechanical noise on the level-wind limit-switch wiring inducing something upstream, (c) still-undiagnosed code bug. Next session: catch a hang, read LCD diag line, check if BT flipped on its own. Consider adding an on-screen counter for Button-A press events too.
-2. **Remove the diagnostic LCD line** once stepper is solid — it's temporary.
-3. **Field-test drum comp with real line-out** (not the tape-trick) at 500m+, compare force ratios to today's spoofed numbers.
-4. **Verify VESC ERPM=1500 change** on real hardware feels right at tensioning states.
-5. **Voltage telemetry**: `vesc_mV` still hardcoded 3700 — need a CAN ID from Lisp for real V.
+2. **VESC battery voltage over CAN (PRIORITY next time code is touched)** — `(get-batt)` is being read in Lisp but never sent. Add CAN ID 11 send in Lisp (dV = V×10 as int32), receive handler in `winch/src/CAN.cpp`, populate `m.vesc_mV = can_voltage_dV * 100` at both MetricsPacket build sites in `winch/src/main.cpp`. Also clean up the `_mV` vs `_dV` name mismatch (BLE packet [14-15] parses as `vescVolt_dV`).
+3. **Remove the diagnostic LCD line** once stepper is solid — it's temporary.
+4. **Field-test drum comp with real line-out** (not the tape-trick) at 500m+, compare force ratios to today's spoofed numbers.
+5. **Verify VESC ERPM=1500 change** on real hardware feels right at tensioning states.
 6. **Hardware**: decoupling caps on Waveshare SX1262 VDD to fix supply desense.
 
 ### Diagnostic tips (learned this session)
