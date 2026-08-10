@@ -7,6 +7,7 @@
 (def current (get-current 1))
 (def target-current current)
 (def winch-state 0)           ; Current winch state (0-6), received via CAN SID 10
+(def last-winch-state -1)     ; Track state changes for ERPM limit updates
 (def last-can-time (systime)) ; Watchdog: timestamp of last received CAN command
 
 ; Handler for EID CAN-frames
@@ -63,9 +64,14 @@
         (if (> (+ current ramp-step) target-current)
             (setq current target-current)))
 
-    ; Speed governor: cap ERPM at 5000 for tensioning (state 0-1 only)
-    (if (and (<= winch-state 1) (> (abs (get-rpm)) 5000))
-        (setq current 0))
+    ; Speed limit: slow tensioning for state 0-1, full speed for tow states
+    ; Only update when state changes to avoid unnecessary conf-set calls
+    (if (not (= winch-state last-winch-state))
+        (progn
+            (if (<= winch-state 1)
+                (conf-set 'l-max-erpm 5000)
+                (conf-set 'l-max-erpm 100000))
+            (setq last-winch-state winch-state)))
 
     (set-current current)
 
