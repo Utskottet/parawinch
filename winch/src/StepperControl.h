@@ -23,13 +23,14 @@ private:
     const int dirStepperPin = 21;
     const int limitSwitchPin = 35;
 
-    int pwmFrequency = 20000;  // SPEED 
+    int pwmFrequency = 20000;  // SPEED
     const int pwmChannel = 0;
     const int pwmResolution = 8;  // 8-bit resolution
 
     int pwmValue = 95;   //SPEED SETTING 0-255
     bool motorRunning = false;
     bool motorDirection = false;  // False for backward, true for forward
+    bool limitHitDirection = false;  // Direction we were going when limit was hit
 
     unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
     const unsigned long debounceDelay = 50;  // the debounce time; increase if the output flickers
@@ -38,8 +39,8 @@ private:
     unsigned long centeringStartTime = 0;  // Start time for centering run
 
     void updatePWM(int value);
-    void toggleMotorDirection();
-    bool checkLimitSwitch();
+    void reverseFromLimit();
+    bool isLimitPressed();
 };
 
 #endif

@@ -24,8 +24,8 @@ void StepperControl::runStepper() {
         digitalWrite(runStepperPin, HIGH);
     }
 
-    if (checkLimitSwitch()) {
-        toggleMotorDirection();
+    if (isLimitPressed()) {
+        reverseFromLimit();
     }
 }
 
@@ -38,44 +38,32 @@ void StepperControl::stopAndCenter() {
 }
 
 void StepperControl::update() {
-   // Serial.print("MotorState: ");
-    //Serial.println(motorState);
-
-    // Declare the variables outside the switch statement
     unsigned long currentTime = millis();
     unsigned long elapsedTime = 0;
 
     switch (motorState) {
         case RUNNING:
-            if (checkLimitSwitch()) {
-               // Serial.println("Limit switch hit in RUNNING state");
-                toggleMotorDirection();
+            if (isLimitPressed()) {
+                reverseFromLimit();
             }
             break;
 
         case CENTERING_TO_LIMIT:
-            if (checkLimitSwitch()) {
-               // Serial.println("Limit switch hit in CENTERING_TO_LIMIT state");
-                toggleMotorDirection();
+            if (isLimitPressed()) {
+                reverseFromLimit();
                 motorState = CENTERING_BACK;
                 centeringStartTime = millis();
-                //Serial.print("Centering Start Time: ");
-                //Serial.println(centeringStartTime);
             }
             break;
 
         case CENTERING_BACK:
             elapsedTime = currentTime - centeringStartTime;
-           // Serial.print("ElapsedTime: ");
-           // Serial.println(elapsedTime);
             if (elapsedTime < additionalRunTime) {
-                if (checkLimitSwitch()) {
-                    //Serial.println("Limit switch hit in CENTERING_BACK state");
-                    toggleMotorDirection();
+                if (isLimitPressed()) {
+                    reverseFromLimit();
                 }
             } else {
                 motorState = IDLE;
-                //Serial.println("Centering completed, setting motor to IDLE");
                 digitalWrite(runStepperPin, LOW);
                 motorRunning = false;
             }
@@ -83,7 +71,6 @@ void StepperControl::update() {
 
         case IDLE:
         default:
-            // Do nothing
             break;
     }
 }
@@ -98,25 +85,30 @@ void StepperControl::setPwmValue(int value) {
     updatePWM(value);
 }
 
-void StepperControl::toggleMotorDirection() {
+void StepperControl::reverseFromLimit() {
+    // Record which direction caused the limit hit, then reverse
+    limitHitDirection = motorDirection;
     motorDirection = !motorDirection;
     digitalWrite(dirStepperPin, motorDirection ? HIGH : LOW);
-   // Serial.print("Motor direction toggled to: ");
-   // Serial.println(motorDirection ? "Forward" : "Backward");
 }
 
-bool StepperControl::checkLimitSwitch() {
-    static bool lastSwitchState = HIGH;
-    bool currentSwitchState = digitalRead(limitSwitchPin);
-    
-    if (currentSwitchState != lastSwitchState && currentSwitchState == LOW) {
-        if (millis() - lastDebounceTime > debounceDelay) {
-            lastDebounceTime = millis();
-            lastSwitchState = currentSwitchState;
-           // Serial.println("Limit switch triggered");
-            return true;
-        }
+bool StepperControl::isLimitPressed() {
+    bool pressed = (digitalRead(limitSwitchPin) == LOW);
+
+    if (!pressed) {
+        return false;
     }
-    lastSwitchState = currentSwitchState;
-    return false;
+
+    // Debounce
+    if (millis() - lastDebounceTime < debounceDelay) {
+        return false;
+    }
+    lastDebounceTime = millis();
+
+    // If switch is pressed and we're ALREADY moving away from it, don't reverse again
+    if (motorDirection != limitHitDirection) {
+        return false;
+    }
+
+    return true;
 }

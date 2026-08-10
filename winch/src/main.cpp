@@ -112,14 +112,6 @@ void LoRaTask(void *pvParameters) {
             m.scaled_amps_x10 = scaledCurrent * 10;
             for (int i = 0; i < 6; i++) m.baseAmps[i] = (uint8_t)baseCurrents[i + 1];
 
-            // Debug: print the outgoing packet
-            uint8_t* p = (uint8_t*)&m;
-            Serial.print("[LoRaTask] Raw metrics bytes (after cmd): ");
-            for (int i = 0; i < sizeof(MetricsPacket); ++i) {
-                Serial.printf("%02X ", p[i]);
-            }
-            Serial.println();
-
             lora.sendMetrics(m);
             lastMetrics = millis();
 
@@ -131,7 +123,6 @@ void LoRaTask(void *pvParameters) {
         // 1b. Handle incoming config packets (from phone via remote)
         ConfigPacket cfg;
         if (lora.hasConfigPacket(cfg) && !settingsMode) {
-            Serial.println("[Config] Received config packet from phone");
             for (int i = 0; i < 6; i++) {
                 baseCurrents[i + 1] = constrain((int)cfg.amps[i], 0, 200);
             }
@@ -144,9 +135,6 @@ void LoRaTask(void *pvParameters) {
             prefs.putInt("amp5", baseCurrents[5]);
             prefs.putInt("amp6", baseCurrents[6]);
             prefs.end();
-            Serial.printf("[Config] Saved: %d %d %d %d %d %d\n",
-                baseCurrents[1], baseCurrents[2], baseCurrents[3],
-                baseCurrents[4], baseCurrents[5], baseCurrents[6]);
         }
 
         // 2. Send periodic metrics
@@ -168,13 +156,6 @@ void LoRaTask(void *pvParameters) {
             }
             m.scaled_amps_x10 = scaledCurrent * 10;
             for (int i = 0; i < 6; i++) m.baseAmps[i] = (uint8_t)baseCurrents[i + 1];
-
-            uint8_t* p = (uint8_t*)&m;
-            Serial.print("[LoRaTask] Raw metrics bytes (periodic): ");
-            for (int i = 0; i < sizeof(MetricsPacket); ++i) {
-                Serial.printf("%02X ", p[i]);
-            }
-            Serial.println();
 
             lora.sendMetrics(m);
             lastMetrics = millis();
@@ -306,9 +287,14 @@ void loop() {
     estimatedDrumDiam = estimateDrumDiamMm(adjustedLineOut);
     float scaleFactor = estimatedDrumDiam / DRUM_FULL_DIAM;
     scaledCurrent = constrain((int16_t)(baseCurrents[currentState] * scaleFactor), 0, 200);
-    Serial.printf("[Drum] rawCAN=%d offset=%d lineOut=%d drum=%.0fmm scale=%.2f base=%d scaled=%d\n",
-                  can_distance, lineOutOffset, adjustedLineOut, estimatedDrumDiam, scaleFactor,
-                  baseCurrents[currentState], scaledCurrent);
+    // Debug print throttled to once per second (float printf is slow, starves stepper loop)
+    static unsigned long lastDrumDebug = 0;
+    if (millis() - lastDrumDebug > 1000) {
+        Serial.printf("[Drum] lineOut=%d drum=%.0fmm scale=%.2f base=%d scaled=%d\n",
+                      adjustedLineOut, estimatedDrumDiam, scaleFactor,
+                      baseCurrents[currentState], scaledCurrent);
+        lastDrumDebug = millis();
+    }
 
     // --- Settings mode: navigation and display ---
     if (settingsMode) {

@@ -101,6 +101,50 @@ parawinch/
 └── CLAUDE.md          This file
 ```
 
+## Session Handoff (2026-08-10)
+
+### Changes made this session (not yet compiled/flashed)
+
+**1. Stepper level-wind hang fix (CRITICAL — safety issue)**
+- `winch/src/StepperControl.cpp` + `.h` rewritten
+- Root cause: `Serial.printf` with float formatting ran every 5ms in main loop (added during drum compensation work). Slowed loop enough that edge-based limit switch detection missed transitions.
+- Fix part A: throttled drum debug printf to 1/sec, removed raw metrics hex dumps from LoRa task
+- Fix part B: rewrote `checkLimitSwitch()` → `isLimitPressed()` — now level-based with direction guard instead of edge-based. Tracks `limitHitDirection` so it always moves AWAY from a pressed switch. Cannot double-toggle. Physically cannot hang even if loop is slow.
+- Old `toggleMotorDirection()` replaced by `reverseFromLimit()` which records direction before reversing.
+- **Test procedure:** hold limit switch button manually while stepper runs — old code hangs, new code should reverse and keep moving away.
+
+**2. Removed debug Serial.printf spam from winch main.cpp**
+- Removed raw metrics hex dump (after-cmd and periodic) from LoRa task
+- Removed config debug prints
+- Drum compensation printf throttled to once per second
+- All functional code unchanged, only debug output removed
+
+**3. VESC Lisp bug (NOT YET FIXED — do in next session)**
+- `docs/vesc-lisp/v2-direct-current.lisp` line 88: `(get-current 2)` queries non-existent CAN ID 2
+- Should be `(get-current)` with no argument for local motor current
+- This causes intermittent 0A readings. The motor IS applying current at standstill (user confirmed tension is felt), but telemetry reports 0 because it's querying the wrong CAN address.
+- Also fix line 13: `(get-current 1)` → `(get-current)` for consistency
+
+### Build & flash instructions
+- Winch: `cd winch && platformio run` then `platformio run --target upload` (COM7)
+- Remote: `cd remote && platformio run` then upload (check COM port)
+- VESC Lisp: paste into VESC Tool > LispBM Editor > Upload
+
+### Test plan for next session
+1. Build winch firmware, verify compiles clean
+2. Flash to M5Stack
+3. Test stepper: hold limit switch while running — must not hang
+4. Test stepper: add `delay(100)` temporarily in loop() to simulate slow loop — must still reverse at switches
+5. Fix VESC Lisp `get-current` bug, upload via VESC Tool
+6. Test current reading: command amps while holding line stationary — should now show non-zero amps
+7. Run scaling test with line out, grab CSV log from phone app
+
+### Ground test analysis (2026-08-10 logs)
+- Log 1 (34m out): scaling factor ~0.99, working correctly
+- Log 2 (204m out): scaling factor ~0.96, 1-2A lower than log 1 — correct
+- Real scaling difference shows at 750m+ (factor 0.82) and 1500m (factor 0.57)
+- Base currents configured as {0, 10, 29, 34, 35, 36, 38} (from phone config, not defaults)
+
 ## Open Items
 - Hardware: decoupling caps on Waveshare SX1262 VDD to fix supply desense
 - Voltage telemetry: vesc_mV hardcoded 3700, need CAN ID for real voltage
