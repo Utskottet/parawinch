@@ -67,7 +67,7 @@ Next steps:
 
 ### Still open -- current hardware
 - [ ] Repeat 120A crane scale test (43-56 kg range too wide, not reliable)
-- [ ] Verify actual drum width (estimated 214 mm)
+- [x] ~~Verify actual drum width~~ — confirmed 214 mm axial, matches code assumptions
 - [ ] Confirm line-out tracking method (VESC get-dist or encoder)
 - [ ] Add MOSFET temp telemetry logging during real tows
 - [x] ~~Implement drum diameter compensation in Lisp using line-out estimate~~
@@ -78,12 +78,15 @@ Next steps:
       session handoff). NOTE: current constants assume core=150mm, full=265mm — the drum spacer
       section below plans a 185mm core, which will need `DRUM_CORE_DIAM` updated in main.cpp.
 
-### Drum spacer (current gear, immediate improvement) -- IN PROGRESS
-- [ ] 3D print cylindrical spacer: 120 mm bore → 185 mm OD
-- [ ] Verify full drum still fits within flange (new full = 300 mm, flange OD = 315 mm -- 7.5 mm margin)
-- [ ] Re-wind full 1500 m line onto drum with spacer installed
-- [ ] Re-confirm full drum diameter measurement after winding (expect ~300 mm)
-- [ ] Raise ERPM to 18000 after spacer is installed (do not raise on bare 120 mm drum)
+### Drum spacer -- INSTALLED (smaller than originally planned)
+- [x] Spacer installed. Actual empty drum diameter is now **150 mm** (not the 185 mm
+      originally planned in the section below — that plan is superseded).
+- [x] Code updated to match: `DRUM_CORE_DIAM = 150.0f` in `winch/src/main.cpp`.
+- [x] Full drum still 265 mm (flange unchanged).
+- [ ] Raise ERPM (currently 11000) — decide new max given actual 150 mm core, not the 18000
+      target that assumed 185 mm. Recompute physics ceiling before setting.
+- Note: the "Drum Spacer: 120 mm → 185 mm Empty Drum" section further down is the
+  *superseded plan*, kept for reference. Real state is 120 → 150 mm.
 
 ### Live tow logging -- after spacer install
 - [ ] Log real tows: ERPM, motor current, battery voltage, MOSFET temp, duty cycle
