@@ -10,7 +10,7 @@
 (def ramp-step (/ 10.0 (* ramp-rate ramp-time))) ; Calculate step size for ramping current
 
 ; Initialize ramping state variables
-(def current (get-current 1))
+(def current (get-current))
 (def target-current current)
 (def winch-state 0)           ; Current winch state (0-6), received via CAN SID 10
 (def last-winch-state -1)     ; Track state changes for ERPM limit updates
@@ -85,7 +85,7 @@
     (define getdist (get-dist 1))
     (define getbat (get-batt))
     (define gettemp (get-temp-mot))
-    (define getcurrant (get-current 2))
+    (define getcurrant (get-current))
 
     ; Format the values with 3 decimal places
     (define formatted-dist (str-from-n getdist "%.3f"))
