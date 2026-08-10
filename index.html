@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.7</title>
+<title>Winch Remote v2.8</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -61,6 +61,8 @@ body {
 .log-btn.active:hover { background: #c62828 !important; }
 .calc-btn { background: #9C27B0 !important; }
 .calc-btn:hover { background: #7B1FA2 !important; }
+.settings-btn { background: #607D8B !important; }
+.settings-btn:hover { background: #455A64 !important; }
 .setgps-btn { background: #455A64 !important; }
 .setgps-btn:hover:not(:disabled) { background: #37474F !important; }
 .setgps-btn.gps-set { background: #00897B !important; }
@@ -262,7 +264,7 @@ body {
 .state-linestate { transform: scale(0.85); transform-origin: center; margin-top: 6px; width: 100%; text-align: center; }
 
 /* ── Calculator overlay ──────────────────────────────────────────────────── */
-#calcOverlay {
+#calcOverlay, #settingsOverlay {
   display: none;
   position: fixed;
   inset: 0;
@@ -271,7 +273,61 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-#calcOverlay.visible { display: block; }
+#calcOverlay.visible, #settingsOverlay.visible { display: block; }
+.settings-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: 'DM Mono', monospace;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #1a2a3a;
+}
+.settings-row label {
+  font-size: 16px;
+  color: #aabbcc;
+}
+.settings-row input {
+  width: 80px;
+  font-size: 20px;
+  text-align: center;
+  background: #1a2a3a;
+  color: #fff;
+  border: 1px solid #334;
+  border-radius: 6px;
+  padding: 8px;
+}
+.settings-status {
+  text-align: center;
+  padding: 10px;
+  font-size: 14px;
+  color: #888;
+  min-height: 40px;
+}
+.settings-status.ok { color: #4CAF50; }
+.settings-status.fail { color: #f44336; }
+.settings-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.settings-buttons button {
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+}
+.btn-save { background: #4CAF50; }
+.btn-save:hover { background: #388E3C; }
+.btn-read { background: #2196F3; }
+.btn-read:hover { background: #1976D2; }
 .calc-wrap {
   max-width: 480px;
   margin: 0 auto;
@@ -403,7 +459,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.7</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.8</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">GPS</span>
@@ -412,6 +468,7 @@ body {
       <button onclick="toggleSetGPS()" id="setGpsBtn" class="setgps-btn" disabled>Set GPS</button>
       <button onclick="toggleLog()" id="logBtn" class="log-btn">Start Log</button>
       <button onclick="showCalc()" class="calc-btn">Calc</button>
+      <button onclick="showSettings()" class="settings-btn">Setup</button>
       <button onclick="toggleFullscreen()" class="fullscreen-btn" id="fullscreenBtn">⛶ Full</button>
     </div>
   </div>
@@ -571,7 +628,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.7</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.8</div>
       </div>
     </div>
 
@@ -661,6 +718,29 @@ body {
       <span class="calc-maxsafe">max safe: <span id="calcMaxSafe">-- A</span></span>
     </div>
     <div class="calc-footer" id="calcFooter">speed ceiling: ERPM limited · 76.7 V resting</div>
+  </div>
+</div>
+
+<!-- ── Settings overlay ───────────────────────────────────────────────────── -->
+<div id="settingsOverlay">
+  <div class="settings-wrap">
+    <div class="calc-header">
+      <button class="calc-back" onclick="hideSettings()">← Back</button>
+      <div class="calc-title-wrap">
+        <div class="calc-title">Amp Settings</div>
+        <div class="calc-subtitle">State 1-6 · max 200A</div>
+      </div>
+    </div>
+    <div class="settings-row"><label>State 1</label><input type="number" id="cfgAmp1" min="0" max="200" value="0"></div>
+    <div class="settings-row"><label>State 2</label><input type="number" id="cfgAmp2" min="0" max="200" value="0"></div>
+    <div class="settings-row"><label>State 3</label><input type="number" id="cfgAmp3" min="0" max="200" value="0"></div>
+    <div class="settings-row"><label>State 4</label><input type="number" id="cfgAmp4" min="0" max="200" value="0"></div>
+    <div class="settings-row"><label>State 5</label><input type="number" id="cfgAmp5" min="0" max="200" value="0"></div>
+    <div class="settings-row"><label>State 6</label><input type="number" id="cfgAmp6" min="0" max="200" value="0"></div>
+    <div class="settings-status" id="cfgStatus">Values from winch will appear when connected</div>
+    <div class="settings-buttons">
+      <button class="btn-save" onclick="saveConfig()">Save to Winch</button>
+    </div>
   </div>
 </div>
 
@@ -814,6 +894,55 @@ function zeroAlt() {
 // ── Calculator overlay ────────────────────────────────────────────────────
 function showCalc() { document.getElementById('calcOverlay').classList.add('visible'); updateCalc(); }
 function hideCalc() { document.getElementById('calcOverlay').classList.remove('visible'); }
+
+// ── Settings overlay ────────────────────────────────────────────────────────
+function showSettings() {
+  // Populate fields from latest BLE data
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('cfgAmp' + i);
+    if (cv.baseAmps && cv.baseAmps[i - 1] !== undefined) el.value = cv.baseAmps[i - 1];
+  }
+  document.getElementById('cfgStatus').textContent = cv.baseAmps ? 'Values loaded from winch' : 'Waiting for winch data...';
+  document.getElementById('cfgStatus').className = 'settings-status' + (cv.baseAmps ? ' ok' : '');
+  document.getElementById('settingsOverlay').classList.add('visible');
+}
+function hideSettings() { document.getElementById('settingsOverlay').classList.remove('visible'); }
+
+let cfgSeq = 0;
+function saveConfig() {
+  if (!rxChar) {
+    document.getElementById('cfgStatus').textContent = 'Not connected to winch';
+    document.getElementById('cfgStatus').className = 'settings-status fail';
+    return;
+  }
+  const amps = [];
+  for (let i = 1; i <= 6; i++) {
+    let v = parseInt(document.getElementById('cfgAmp' + i).value) || 0;
+    v = Math.max(0, Math.min(200, v));
+    document.getElementById('cfgAmp' + i).value = v;
+    amps.push(v);
+  }
+  const pkt = new Uint8Array([0x05, ++cfgSeq & 0xFF, ...amps]);
+  rxChar.writeValue(pkt).then(() => {
+    document.getElementById('cfgStatus').textContent = 'Sent to winch — verifying...';
+    document.getElementById('cfgStatus').className = 'settings-status';
+    // Verify: check if baseAmps match within 3 seconds
+    setTimeout(() => {
+      const match = cv.baseAmps && amps.every((a, i) => cv.baseAmps[i] === a);
+      const el = document.getElementById('cfgStatus');
+      if (match) {
+        el.textContent = 'Saved ✓';
+        el.className = 'settings-status ok';
+      } else {
+        el.textContent = 'Not confirmed — try again';
+        el.className = 'settings-status fail';
+      }
+    }, 3000);
+  }).catch(err => {
+    document.getElementById('cfgStatus').textContent = 'BLE write failed: ' + err;
+    document.getElementById('cfgStatus').className = 'settings-status fail';
+  });
+}
 
 function gaugeColor(val, warn, danger) {
   if (val >= danger) return '#ff3b3b';
@@ -1210,6 +1339,7 @@ function handleTelemetry(event) {
   cv.lineState    = lineStateNames[lineState] || '-';
   cv.amps         = (amps_x10 / 10).toFixed(1);
   cv.scaledAmps   = (scaledAmps_x10 / 10).toFixed(1);
+  cv.baseAmps     = [data[20], data[21], data[22], data[23], data[24], data[25]];
   cv.temp         = temp > 0 ? temp : 0;
   cv.rssi         = rssi;
   cv.snr          = snr;

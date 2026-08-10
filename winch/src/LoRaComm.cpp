@@ -60,11 +60,22 @@ bool LoRaComm::receiveCmd(CmdPacket& outCmd) {
             xSemaphoreGive(spiMutex);
             return true;
         }
+        if (buf[0] == 0x05 && len >= (int)sizeof(ConfigPacket)) {
+            _lastConfigPacket = *(ConfigPacket*)buf;
+            _configPending = true;
+        }
     }
     xSemaphoreTake(spiMutex, portMAX_DELAY);
     lora->startReceive();
     xSemaphoreGive(spiMutex);
     return false;
+}
+
+bool LoRaComm::hasConfigPacket(ConfigPacket& out) {
+    if (!_configPending) return false;
+    out = _lastConfigPacket;
+    _configPending = false;
+    return true;
 }
 
 void LoRaComm::sendMetrics(const MetricsPacket& m) {

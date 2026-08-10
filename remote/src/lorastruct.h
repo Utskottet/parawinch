@@ -39,6 +39,13 @@ struct MetricsPacket {        // 0x02  winch → remote (broadcast)
   uint16_t vesc_mV;           // VESC voltage in millivolts
   char     lineState;         // 'R'=Ready, 'A'=Armed, 'S'=Stopped
   uint16_t scaled_amps_x10;  // compensated commanded amps × 10
+  uint8_t  baseAmps[6];      // current amp table (state 1-6)
+};
+
+struct ConfigPacket {         // 0x05  phone → winch (via remote relay)
+  uint8_t type = 0x05;
+  uint8_t seq;
+  uint8_t amps[6];            // state 1-6, clamped 0-200
 };
 
 struct HeartbeatPacket {      // 0x04 (optional)

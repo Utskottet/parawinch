@@ -105,6 +105,7 @@ Button2 btnUp(BTN_UP_PIN);
 bool sendCmd(uint8_t st);
 void processDownButton();
 void processMetricsPacket(const MetricsPacket* m);
+extern bool bleHasPendingConfig(ConfigPacket& out);
 
 // ─── Remote battery (XIAO nRF52840) ──────────────────────────────────────────
 // PIN_VBAT  = 32 = P0.31  battery sense (1MΩ:510kΩ divider output)
@@ -159,6 +160,7 @@ void processMetricsPacket(const MetricsPacket* m) {
   bleInterface.setLineState(m->lineState);
   bleInterface.setMetrics(m->distance_m, m->amps_x10 / 10.0f, m->vesc_mV / 1000.0f);
   bleInterface.setScaledAmps(m->scaled_amps_x10);
+  bleInterface.setBaseAmps(m->baseAmps);
   bleInterface.setSignalQuality(lora.getRSSI(), lora.getSNR(), packetLossPercent);
   metricsDirty = true;
 }
@@ -201,7 +203,7 @@ bool sendCmd(uint8_t st) {
     while (awaitingSeq && (int32_t)(millis() - deadline) < 0) {
       if (radioIRQ) {
         radioIRQ = false;
-        uint8_t buf[16];
+        uint8_t buf[24];
         size_t  len = sizeof(buf);
 
         if (lora.readData(buf, len) == RADIOLIB_ERR_NONE && len) {
@@ -384,7 +386,7 @@ void loop() {
   // LoRa receive (metrics from winch, idle mode)
   if (radioIRQ) {
     radioIRQ = false;
-    uint8_t buf[16];
+    uint8_t buf[24];
     size_t  len = sizeof(buf);
 
     if (lora.readData(buf, len) == RADIOLIB_ERR_NONE) {
@@ -399,6 +401,16 @@ void loop() {
   if (metricsDirty) {
     bleInterface.sendTelemetry();
     metricsDirty = false;
+  }
+
+  // Relay config packet from phone (BLE RX) to winch (LoRa TX)
+  ConfigPacket cfgPkt;
+  if (loraReady && bleHasPendingConfig(cfgPkt)) {
+    DBGF("[CFG] Relaying config to winch: %d %d %d %d %d %d",
+         cfgPkt.amps[0], cfgPkt.amps[1], cfgPkt.amps[2],
+         cfgPkt.amps[3], cfgPkt.amps[4], cfgPkt.amps[5]);
+    lora.transmit(reinterpret_cast<uint8_t*>(&cfgPkt), sizeof(cfgPkt));
+    lora.startReceive();
   }
 
   // Remote battery update every 10 s

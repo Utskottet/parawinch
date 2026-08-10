@@ -4,6 +4,7 @@
  */
 
 #include "ble_interface.h"
+#include "lorastruct.h"
 
 // BLE objects are file-scoped (same pattern as ItsyBitsy)
 static BLEService        _winchService(BLE_SERVICE_UUID);
@@ -12,12 +13,30 @@ static BLECharacteristic _rxChar(BLE_CHAR_RX_UUID);
 
 BLEInterface bleInterface;
 
+// ─── Config relay buffer (BLE RX → LoRa TX, picked up by loop()) ────────────
+static volatile bool     _configReady = false;
+static ConfigPacket      _configBuf;
+
+bool bleHasPendingConfig(ConfigPacket& out) {
+  if (!_configReady) return false;
+  out = _configBuf;
+  _configReady = false;
+  return true;
+}
+
 // ─── RX callback (commands arriving from web app) ────────────────────────────
 static void rxWriteCallback(uint16_t conn_hdl, BLECharacteristic* chr,
                              uint8_t* data, uint16_t len) {
   Serial.print("[BLE] RX: ");
   for (uint16_t i = 0; i < len; i++) Serial.printf("%02X ", data[i]);
   Serial.println();
+
+  // Config packet: type 0x05, 8 bytes total
+  if (len >= sizeof(ConfigPacket) && data[0] == 0x05 && !_configReady) {
+    memcpy(&_configBuf, data, sizeof(ConfigPacket));
+    _configReady = true;
+    Serial.println("[BLE] Config packet queued for LoRa relay");
+  }
 }
 
 // ─── begin() ────────────────────────────────────────────────────────────────
@@ -30,7 +49,7 @@ void BLEInterface::begin() {
 
   _txChar.setProperties(CHR_PROPS_NOTIFY);
   _txChar.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  _txChar.setFixedLen(20);
+  _txChar.setFixedLen(26);
   _txChar.begin();
 
   _rxChar.setProperties(CHR_PROPS_WRITE);
@@ -83,12 +102,13 @@ void BLEInterface::setTempController(uint8_t degC) { _temp      = degC; }
 void BLEInterface::setRemoteCharging(bool c)       { _charging  = c; }
 void BLEInterface::setSleepMins(uint8_t mins)      { _sleepMins = mins; }
 void BLEInterface::setScaledAmps(uint16_t v)       { _scaledAmps_x10 = v; }
+void BLEInterface::setBaseAmps(const uint8_t a[6]) { memcpy(_baseAmps, a, 6); }
 
 // ─── sendTelemetry() ─────────────────────────────────────────────────────────
 bool BLEInterface::sendTelemetry() {
   if (!Bluefruit.connected()) return false;
 
-  uint8_t pkt[20] = {0};
+  uint8_t pkt[26] = {0};
   pkt[0]  = _state;
   pkt[1]  = (_distance_m >> 8) & 0xFF;
   pkt[2]  = _distance_m & 0xFF;
@@ -108,7 +128,8 @@ bool BLEInterface::sendTelemetry() {
   pkt[16] = _sleepMins;
   pkt[17] = (_scaledAmps_x10 >> 8) & 0xFF;
   pkt[18] = _scaledAmps_x10 & 0xFF;
+  for (int i = 0; i < 6; i++) pkt[20 + i] = _baseAmps[i];
 
-  _txChar.notify(pkt, 20);
+  _txChar.notify(pkt, 26);
   return true;
 }

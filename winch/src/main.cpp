@@ -111,6 +111,7 @@ void LoRaTask(void *pvParameters) {
                 m.lineState = 'R';    // Ready
             }
             m.scaled_amps_x10 = scaledCurrent * 10;
+            for (int i = 0; i < 6; i++) m.baseAmps[i] = (uint8_t)baseCurrents[i + 1];
 
             // Debug: print the outgoing packet
             uint8_t* p = (uint8_t*)&m;
@@ -126,6 +127,27 @@ void LoRaTask(void *pvParameters) {
             // Update RSSI/SNR for local display
             lastLoRaRSSI = lora.getLastRSSI();
             lastLoRaSNR  = lora.getLastSNR();
+        }
+
+        // 1b. Handle incoming config packets (from phone via remote)
+        ConfigPacket cfg;
+        if (lora.hasConfigPacket(cfg) && !settingsMode) {
+            Serial.println("[Config] Received config packet from phone");
+            for (int i = 0; i < 6; i++) {
+                baseCurrents[i + 1] = constrain((int)cfg.amps[i], 0, 200);
+            }
+            // Save to NVS
+            prefs.begin("winch", false);
+            prefs.putInt("amp1", baseCurrents[1]);
+            prefs.putInt("amp2", baseCurrents[2]);
+            prefs.putInt("amp3", baseCurrents[3]);
+            prefs.putInt("amp4", baseCurrents[4]);
+            prefs.putInt("amp5", baseCurrents[5]);
+            prefs.putInt("amp6", baseCurrents[6]);
+            prefs.end();
+            Serial.printf("[Config] Saved: %d %d %d %d %d %d\n",
+                baseCurrents[1], baseCurrents[2], baseCurrents[3],
+                baseCurrents[4], baseCurrents[5], baseCurrents[6]);
         }
 
         // 2. Send periodic metrics
@@ -146,6 +168,7 @@ void LoRaTask(void *pvParameters) {
                 m.lineState = 'R';
             }
             m.scaled_amps_x10 = scaledCurrent * 10;
+            for (int i = 0; i < 6; i++) m.baseAmps[i] = (uint8_t)baseCurrents[i + 1];
 
             uint8_t* p = (uint8_t*)&m;
             Serial.print("[LoRaTask] Raw metrics bytes (periodic): ");
