@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.9</title>
+<title>Winch Remote v2.10</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -459,7 +459,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.9</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.10</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">GPS</span>
@@ -628,7 +628,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.9</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.10</div>
       </div>
     </div>
 
@@ -924,20 +924,9 @@ function saveConfig() {
   }
   const pkt = new Uint8Array([0x05, ++cfgSeq & 0xFF, ...amps]);
   rxChar.writeValue(pkt).then(() => {
-    document.getElementById('cfgStatus').textContent = 'Sent to winch — verifying...';
-    document.getElementById('cfgStatus').className = 'settings-status';
-    // Verify: check if baseAmps match within 3 seconds
-    setTimeout(() => {
-      const match = cv.baseAmps && amps.every((a, i) => cv.baseAmps[i] === a);
-      const el = document.getElementById('cfgStatus');
-      if (match) {
-        el.textContent = 'Saved ✓';
-        el.className = 'settings-status ok';
-      } else {
-        el.textContent = 'Not confirmed — try again';
-        el.className = 'settings-status fail';
-      }
-    }, 3000);
+    cv.baseAmps = amps;
+    document.getElementById('cfgStatus').textContent = 'Sent ✓';
+    document.getElementById('cfgStatus').className = 'settings-status ok';
   }).catch(err => {
     document.getElementById('cfgStatus').textContent = 'BLE write failed: ' + err;
     document.getElementById('cfgStatus').className = 'settings-status fail';
@@ -1341,7 +1330,7 @@ function handleTelemetry(event) {
   cv.lineState    = lineStateNames[lineState] || '-';
   cv.amps         = (amps_x10 / 10).toFixed(1);
   cv.scaledAmps   = (scaledAmps_x10 / 10).toFixed(1);
-  cv.baseAmps     = data.length >= 26 ? [data[20], data[21], data[22], data[23], data[24], data[25]] : cv.baseAmps;
+  // baseAmps not in 20-byte telemetry — populated via config write feedback
   cv.temp         = temp > 0 ? temp : 0;
   cv.rssi         = rssi;
   cv.snr          = snr;

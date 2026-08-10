@@ -49,7 +49,7 @@ void BLEInterface::begin() {
 
   _txChar.setProperties(CHR_PROPS_NOTIFY);
   _txChar.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  _txChar.setFixedLen(26);
+  _txChar.setFixedLen(20);
   _txChar.begin();
 
   _rxChar.setProperties(CHR_PROPS_WRITE);
@@ -108,7 +108,7 @@ void BLEInterface::setBaseAmps(const uint8_t a[6]) { memcpy(_baseAmps, a, 6); }
 bool BLEInterface::sendTelemetry() {
   if (!Bluefruit.connected()) return false;
 
-  uint8_t pkt[26] = {0};
+  uint8_t pkt[20] = {0};
   pkt[0]  = _state;
   pkt[1]  = (_distance_m >> 8) & 0xFF;
   pkt[2]  = _distance_m & 0xFF;
@@ -128,8 +128,8 @@ bool BLEInterface::sendTelemetry() {
   pkt[16] = _sleepMins;
   pkt[17] = (_scaledAmps_x10 >> 8) & 0xFF;
   pkt[18] = _scaledAmps_x10 & 0xFF;
-  for (int i = 0; i < 6; i++) pkt[20 + i] = _baseAmps[i];
+  // pkt[19] = 0
 
-  _txChar.notify(pkt, 26);
+  _txChar.notify(pkt, 20);
   return true;
 }
