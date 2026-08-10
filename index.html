@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.6</title>
+<title>Winch Remote v2.7</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -96,7 +96,8 @@ body {
     grid-template-columns: 1fr 1fr !important;
     grid-template-rows: unset !important;
   }
-  .state-value { font-size: 60px !important; }
+  .state-value { font-size: 50px !important; }
+  .force-value { font-size: 50px !important; }
 }
 
 /* Left column */
@@ -106,20 +107,36 @@ body {
   background: #2a2a2a;
   border-radius: 8px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
   align-items: center;
   padding: 10px;
   min-height: 120px;
 }
+.state-half {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
 .state-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
 .state-value {
-  font-size: 100px;
+  font-size: 72px;
   font-weight: bold;
   color: #4CAF50;
   line-height: 0.9;
   text-shadow: 0 0 20px rgba(76,175,80,0.3);
 }
+.force-value {
+  font-size: 72px;
+  font-weight: bold;
+  color: #ff9800;
+  line-height: 0.9;
+  text-shadow: 0 0 20px rgba(255,152,0,0.3);
+}
+.force-value.warn { color: #ff5722; text-shadow: 0 0 20px rgba(255,87,34,0.3); }
+.force-value.danger { color: #f44336; text-shadow: 0 0 20px rgba(244,67,54,0.3); }
 
 /* Middle column */
 .middle-column {
@@ -241,8 +258,8 @@ body {
 .zero-alt-btn:hover:not(:disabled) { background: #546E7A; color: #fff; }
 .zero-alt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Line state badge inside state card — slightly smaller */
-.state-linestate { transform: scale(0.85); transform-origin: center; margin-top: 6px; }
+/* Line state badge inside state card — full width bottom */
+.state-linestate { transform: scale(0.85); transform-origin: center; margin-top: 6px; width: 100%; text-align: center; }
 
 /* ── Calculator overlay ──────────────────────────────────────────────────── */
 #calcOverlay {
@@ -386,7 +403,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.6</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.7</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">GPS</span>
@@ -403,8 +420,15 @@ body {
     <!-- LEFT: State -->
     <div class="left-column">
       <div class="state-display">
-        <div class="state-label">STATE</div>
-        <div class="state-value" id="state">-</div>
+        <div class="state-half">
+          <div class="state-label">STATE</div>
+          <div class="state-value" id="state">-</div>
+        </div>
+        <div class="state-half">
+          <div class="state-label">FORCE</div>
+          <div class="force-value" id="forceKg">-</div>
+          <div class="state-label" style="margin-top:2px">kg</div>
+        </div>
         <div class="state-linestate">
           <div class="line-state ready" id="lineState">READY</div>
         </div>
@@ -434,7 +458,7 @@ body {
       </div>
 
       <div class="medium-card">
-        <div class="medium-label">Current</div>
+        <div class="medium-label">Cmd | VESC</div>
         <div>
           <span class="medium-value" id="amps">0</span>
           <span class="medium-unit">A</span>
@@ -547,7 +571,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.6</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.7</div>
       </div>
     </div>
 
@@ -852,7 +876,7 @@ let winchReconnectTimer   = null;
 let winchManualDisconnect = false;
 
 const cv = {
-  state:0, lineDistance:0, lineState:'-', amps:0, temp:0,
+  state:0, lineDistance:0, lineState:'-', amps:0, scaledAmps:0, temp:0,
   rssi:0, snr:0, lostPct:0, winchBat:0, remoteBat:0,
   vescVolt:0, speed:0, gpsAlt:0
 };
@@ -863,7 +887,7 @@ const LOG_HEADER =
   'line_distance_m,line_speed_ms,' +
   'gps_dist_m,' +
   'alt_gain_m,climb_rate_ms,' +
-  'speed_kmh,amps_A,voltage_V,power_kW,energy_Wh,' +
+  'speed_kmh,scaled_amps_A,amps_A,voltage_V,power_kW,energy_Wh,' +
   'rssi_dBm,snr_dB,lost_pct';
 
 let logActive  = false;
@@ -958,7 +982,7 @@ function writeLogRow() {
     cv.lineDistance, lineSpeed,
     gpsDist,
     altGain, climbRate,
-    cv.speed, cv.amps, cv.vescVolt, powerKW, +energyWh.toFixed(4),
+    cv.speed, cv.scaledAmps, cv.amps, cv.vescVolt, powerKW, +energyWh.toFixed(4),
     cv.rssi, cv.snr, cv.lostPct
   ].join(','));
 }
@@ -1178,11 +1202,14 @@ function handleTelemetry(event) {
   const snr          = data[13] > 127 ? data[13] - 256 : data[13];
   const vescVolt_dV  = (data[14] << 8) | data[15];
   const sleepMins    = data[16];
+  const scaledAmps_x10_raw = (data[17] << 8) | data[18];
+  const scaledAmps_x10     = scaledAmps_x10_raw > 32767 ? 0 : scaledAmps_x10_raw;
 
   cv.state        = state;
   cv.lineDistance = lineDistance;
   cv.lineState    = lineStateNames[lineState] || '-';
   cv.amps         = (amps_x10 / 10).toFixed(1);
+  cv.scaledAmps   = (scaledAmps_x10 / 10).toFixed(1);
   cv.temp         = temp > 0 ? temp : 0;
   cv.rssi         = rssi;
   cv.snr          = snr;
@@ -1203,12 +1230,18 @@ function handleTelemetry(event) {
   lsEl.className    = 'line-state ' + (lineStateClasses[lineState] || '');
 
   // Amps + live force hint
-  document.getElementById('amps').textContent = cv.amps;
+  document.getElementById('amps').textContent = cv.scaledAmps + ' | ' + cv.amps;
   const drumNow  = drumDiamFromLineOut(lineDistance);
   const forceNow = calcForce(parseFloat(cv.amps), drumNow);
   const fhEl     = document.getElementById('liveForce');
   fhEl.textContent = forceNow.toFixed(1) + ' kg';
   fhEl.className   = 'force-hint' +
+    (forceNow >= PILOT_WEIGHT ? ' danger' : forceNow >= PILOT_WEIGHT * 0.9 ? ' warn' : '');
+
+  // Big force display in state card
+  const fkEl = document.getElementById('forceKg');
+  fkEl.textContent = Math.round(forceNow);
+  fkEl.className   = 'force-value' +
     (forceNow >= PILOT_WEIGHT ? ' danger' : forceNow >= PILOT_WEIGHT * 0.9 ? ' warn' : '');
 
   document.getElementById('temp').textContent = cv.temp > 0 ? cv.temp : 'N/A';

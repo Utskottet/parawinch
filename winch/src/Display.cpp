@@ -41,7 +41,7 @@ void Display::drawStaticElements() {
 
 void Display::drawButtonLabels() {
     M5.Lcd.setTextSize(2);  // Bigger buttons
-    M5.Lcd.setTextColor(DARK_BLUE);  // Darker blue for buttons
+    M5.Lcd.setTextColor(PURE_WHITE);
     
     // Clean button text only - bigger and better positioned
     M5.Lcd.setCursor(35, 210);
@@ -52,9 +52,9 @@ void Display::drawButtonLabels() {
     M5.Lcd.print("RESET");
 }
 
-void Display::updateDisplay(int currentState, int rssi, float snr, int lineOut, 
-                          int current, bool lineStopArmed, bool lineStopActivated, 
-                          int canTemperature) {
+void Display::updateDisplay(int currentState, int rssi, float snr, int lineOut,
+                          int current, bool lineStopArmed, bool lineStopActivated,
+                          int canTemperature, int scaledCurrent, int drumDiam) {
     xSemaphoreTake(spiMutex, portMAX_DELAY);
     
     // Clear all data areas
@@ -83,8 +83,8 @@ void Display::updateDisplay(int currentState, int rssi, float snr, int lineOut,
     M5.Lcd.setCursor(20, 60);
     M5.Lcd.printf("%dm", lineOut);
     
-    M5.Lcd.setCursor(220, 60);
-    M5.Lcd.printf("%dA", current);
+    M5.Lcd.setCursor(160, 60);
+    M5.Lcd.printf("%dA D%d", scaledCurrent, drumDiam);
     
     // LINE STATUS - Centered and prominent, bigger size
     M5.Lcd.setTextSize(3);  // Bigger status text

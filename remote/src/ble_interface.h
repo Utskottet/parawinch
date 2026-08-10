@@ -17,7 +17,9 @@
  *  [12]    charging    uint8   0/1
  *  [13]    snr         int8    cast to uint8
  *  [14-15] vescVolt_dV uint16  big-endian, voltage×10 (e.g. 480 = 48.0V)
- *  [16-19] reserved    0
+ *  [16]    sleepMins   uint8   minutes until deep sleep
+ *  [17-18] scaledAmps  uint16  big-endian, compensated cmd amps × 10
+ *  [19]    reserved    0
  */
 
 #pragma once
@@ -45,6 +47,7 @@ public:
   void setTempController(uint8_t degC);
   void setRemoteCharging(bool charging);
   void setSleepMins(uint8_t mins);   // minutes until deep sleep (byte [16])
+  void setScaledAmps(uint16_t scaled_x10);
 
   bool sendTelemetry();
   bool isConnected() const { return Bluefruit.connected(); }
@@ -63,6 +66,7 @@ private:
   bool     _charging    = false;
   uint16_t _vescVolt_dV = 0;
   uint8_t  _sleepMins   = 30;
+  uint16_t _scaledAmps_x10 = 0;
 };
 
 extern BLEInterface bleInterface;

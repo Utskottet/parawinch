@@ -45,6 +45,23 @@ bool settingsMode = false;
 int settingsSelectedState = 1;
 bool forceDisplayRedraw = false;
 
+// ---- Drum compensation ----
+const float DRUM_CORE_DIAM = 150.0f;
+const float DRUM_FULL_DIAM = 265.0f;
+const float TOTAL_LINE_M   = 1500.0f;
+volatile int16_t scaledCurrent = 0;
+volatile float estimatedDrumDiam = 265.0f;
+
+float estimateDrumDiamMm(int32_t lineOutMeters) {
+    float lineOut = constrain((float)lineOutMeters, 0.0f, TOTAL_LINE_M);
+    float lineOnDrum = TOTAL_LINE_M - lineOut;
+    float fraction = lineOnDrum / TOTAL_LINE_M;
+    float rCore = DRUM_CORE_DIAM / 2.0f;
+    float rFull = DRUM_FULL_DIAM / 2.0f;
+    float radius = sqrtf(rCore * rCore + fraction * (rFull * rFull - rCore * rCore));
+    return radius * 2.0f;
+}
+
 static unsigned long lastDisplay = 0;  // display only
 
 // ------------ LoRa FreeRTOS Task -------------
@@ -82,7 +99,7 @@ void LoRaTask(void *pvParameters) {
             m.seq         = metricsSeq++;
             m.lastCmdSeq  = lastCmdSeq;
             m.amps_x10    = can_current * 10;
-            m.distance_m  = abs(can_distance - lineOutOffset);
+            m.distance_m  = max((int32_t)0, -(can_distance - lineOutOffset));
             m.vesc_mV     = 3700; // Replace with real value if available
 
             // --- State mapping for remote ---
@@ -93,6 +110,7 @@ void LoRaTask(void *pvParameters) {
             } else {
                 m.lineState = 'R';    // Ready
             }
+            m.scaled_amps_x10 = scaledCurrent * 10;
 
             // Debug: print the outgoing packet
             uint8_t* p = (uint8_t*)&m;
@@ -117,7 +135,7 @@ void LoRaTask(void *pvParameters) {
             m.seq         = metricsSeq++;
             m.lastCmdSeq  = lastCmdSeq;
             m.amps_x10    = can_current * 10;
-            m.distance_m  = abs(can_distance - lineOutOffset);
+            m.distance_m  = max((int32_t)0, -(can_distance - lineOutOffset));
             m.vesc_mV     = 3700;
 
             if (lineStopActivated) {
@@ -127,6 +145,7 @@ void LoRaTask(void *pvParameters) {
             } else {
                 m.lineState = 'R';
             }
+            m.scaled_amps_x10 = scaledCurrent * 10;
 
             uint8_t* p = (uint8_t*)&m;
             Serial.print("[LoRaTask] Raw metrics bytes (periodic): ");
@@ -244,7 +263,7 @@ void loop() {
     }
 
     // --- Calculate adjusted LineOut value ---
-    int32_t adjustedLineOut = abs(can_distance - lineOutOffset);
+    int32_t adjustedLineOut = max((int32_t)0, -(can_distance - lineOutOffset));
 
     // --- Arm/Trigger line stop (always runs) ---
     if (!armLineStop && adjustedLineOut > armLineStopThreshold) {
@@ -260,6 +279,14 @@ void loop() {
     if (lineStopActivated) {
         currentState = 0;
     }
+
+    // --- Drum compensation: scale current by drum diameter ---
+    estimatedDrumDiam = estimateDrumDiamMm(adjustedLineOut);
+    float scaleFactor = estimatedDrumDiam / DRUM_FULL_DIAM;
+    scaledCurrent = constrain((int16_t)(baseCurrents[currentState] * scaleFactor), 0, 200);
+    Serial.printf("[Drum] rawCAN=%d offset=%d lineOut=%d drum=%.0fmm scale=%.2f base=%d scaled=%d\n",
+                  can_distance, lineOutOffset, adjustedLineOut, estimatedDrumDiam, scaleFactor,
+                  baseCurrents[currentState], scaledCurrent);
 
     // --- Settings mode: navigation and display ---
     if (settingsMode) {
@@ -297,6 +324,8 @@ void loop() {
         static int lastDisplayedTemperature = -9999;
         static int lastDisplayedRSSI = 12345;    // impossible value to force update first loop
         static float lastDisplayedSNR = 12345.0; // impossible value to force update first loop
+        static int lastDisplayedScaledCurrent = -9999;
+        static int lastDisplayedDrumDiam = -1;
 
         if (
             forceDisplayRedraw ||
@@ -307,7 +336,9 @@ void loop() {
             lineStopActivated != lastDisplayedLineStopActivated ||
             can_temperature != lastDisplayedTemperature ||
             lastLoRaRSSI != lastDisplayedRSSI ||
-            lastLoRaSNR != lastDisplayedSNR
+            lastLoRaSNR != lastDisplayedSNR ||
+            scaledCurrent != lastDisplayedScaledCurrent ||
+            (int)estimatedDrumDiam != lastDisplayedDrumDiam
         ) {
             display.updateDisplay(
                 currentState,
@@ -317,7 +348,9 @@ void loop() {
                 can_current,
                 armLineStop,
                 lineStopActivated,
-                can_temperature
+                can_temperature,
+                scaledCurrent,
+                (int)estimatedDrumDiam
             );
             lastDisplayedState = currentState;
             lastDisplayedLineOut = adjustedLineOut;
@@ -327,6 +360,8 @@ void loop() {
             lastDisplayedTemperature = can_temperature;
             lastDisplayedRSSI = lastLoRaRSSI;
             lastDisplayedSNR = lastLoRaSNR;
+            lastDisplayedScaledCurrent = scaledCurrent;
+            lastDisplayedDrumDiam = (int)estimatedDrumDiam;
             forceDisplayRedraw = false;
         }
 

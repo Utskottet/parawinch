@@ -39,6 +39,7 @@ struct MetricsPacket {
   uint16_t distance_m;
   uint16_t vesc_mV;
   char     lineState;
+  uint16_t scaled_amps_x10;   // compensated commanded amps × 10
 };
 #pragma pack(pop)
 

@@ -9,7 +9,7 @@ public:
     Display();
     void init();
     void drawStaticLabels();
-    void updateDisplay(int currentState, int rssi, float snr, int lineOut, int current, bool lineStopArmed, bool lineStopActivated, int canTemperature);
+    void updateDisplay(int currentState, int rssi, float snr, int lineOut, int current, bool lineStopArmed, bool lineStopActivated, int canTemperature, int scaledCurrent, int drumDiam);
     void updateSettingsDisplay(int selectedState, int baseCurrents[7]);
 
 private:

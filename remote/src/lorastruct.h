@@ -38,6 +38,7 @@ struct MetricsPacket {        // 0x02  winch → remote (broadcast)
   uint16_t distance_m;        // Line distance in metres
   uint16_t vesc_mV;           // VESC voltage in millivolts
   char     lineState;         // 'R'=Ready, 'A'=Armed, 'S'=Stopped
+  uint16_t scaled_amps_x10;  // compensated commanded amps × 10
 };
 
 struct HeartbeatPacket {      // 0x04 (optional)

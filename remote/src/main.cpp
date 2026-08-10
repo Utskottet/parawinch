@@ -158,6 +158,7 @@ void processMetricsPacket(const MetricsPacket* m) {
 
   bleInterface.setLineState(m->lineState);
   bleInterface.setMetrics(m->distance_m, m->amps_x10 / 10.0f, m->vesc_mV / 1000.0f);
+  bleInterface.setScaledAmps(m->scaled_amps_x10);
   bleInterface.setSignalQuality(lora.getRSSI(), lora.getSNR(), packetLossPercent);
   metricsDirty = true;
 }

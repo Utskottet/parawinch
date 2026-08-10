@@ -6,6 +6,7 @@
 
 extern int currentState;
 extern int baseCurrents[7];
+extern volatile int16_t scaledCurrent;
 extern LoRaComm lora;
 
 const twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_17, GPIO_NUM_16, TWAI_MODE_NORMAL);
@@ -27,7 +28,7 @@ void can_setup() {
 void can_send_message() {
     static unsigned long lastSent = millis();
     if (millis() - lastSent >= 200) {
-        send_custom_can_message(1, (int16_t)baseCurrents[currentState]);
+        send_custom_can_message(1, scaledCurrent);
         lastSent = millis();
     }
 }
@@ -39,7 +40,6 @@ void can_receive_message() {
             if (message.identifier == 7) {
                 // Distance from ID 7
                 can_distance = (int32_t)((message.data[0] << 24) | (message.data[1] << 16) | (message.data[2] << 8) | message.data[3]);
-                can_distance = abs(can_distance);
             }
             else if (message.identifier == 8) {
                 // Current from ID 8

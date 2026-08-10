@@ -82,6 +82,7 @@ void BLEInterface::setWinchBattery(uint8_t pct)   { _winchBat  = pct; }
 void BLEInterface::setTempController(uint8_t degC) { _temp      = degC; }
 void BLEInterface::setRemoteCharging(bool c)       { _charging  = c; }
 void BLEInterface::setSleepMins(uint8_t mins)      { _sleepMins = mins; }
+void BLEInterface::setScaledAmps(uint16_t v)       { _scaledAmps_x10 = v; }
 
 // ─── sendTelemetry() ─────────────────────────────────────────────────────────
 bool BLEInterface::sendTelemetry() {
@@ -105,6 +106,8 @@ bool BLEInterface::sendTelemetry() {
   pkt[14] = (_vescVolt_dV >> 8) & 0xFF;
   pkt[15] = _vescVolt_dV & 0xFF;
   pkt[16] = _sleepMins;
+  pkt[17] = (_scaledAmps_x10 >> 8) & 0xFF;
+  pkt[18] = _scaledAmps_x10 & 0xFF;
 
   _txChar.notify(pkt, 20);
   return true;
