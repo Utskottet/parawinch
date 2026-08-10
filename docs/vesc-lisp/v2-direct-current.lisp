@@ -75,7 +75,7 @@
     (if (not (= winch-state last-winch-state))
         (progn
             (if (<= winch-state 1)
-                (conf-set 'l-max-erpm 5000)
+                (conf-set 'l-max-erpm 1500)
                 (conf-set 'l-max-erpm 100000))
             (setq last-winch-state winch-state)))
 

@@ -13,9 +13,16 @@ public:
     void update();  // Non-blocking update function
     void setPwmValue(int value);  // New function to adjust PWM value
 
+    // Diagnostic getters — read-only observers, safe to call from anywhere.
+    uint8_t  diagState() const     { return (uint8_t)motorState; }
+    uint32_t diagReversals() const { return reversalCount; }
+    uint32_t diagLastRevMs() const { return lastReverseMs; }
+
 private:
     enum MotorState { IDLE, RUNNING, CENTERING_TO_LIMIT, CENTERING_BACK };
     MotorState motorState = IDLE;
+    uint32_t reversalCount = 0;
+    uint32_t lastReverseMs = 0;
 
     LoRaComm& lora;  // Reference to LoRaComm instance
     const int pwmPin = 25;
@@ -30,7 +37,7 @@ private:
     int pwmValue = 95;   //SPEED SETTING 0-255
     bool motorRunning = false;
     bool motorDirection = false;  // False for backward, true for forward
-    bool limitHitDirection = false;  // Direction we were going when limit was hit
+    bool switchReleasedSinceHit = true;  // gate re-triggering on the switch release edge
 
     unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
     const unsigned long debounceDelay = 50;  // the debounce time; increase if the output flickers

@@ -101,52 +101,49 @@ parawinch/
 └── CLAUDE.md          This file
 ```
 
-## Session Handoff (2026-08-10)
+## Session Handoff (2026-08-10 evening)
 
-### Changes made this session (not yet compiled/flashed)
+### Changes shipped this session
 
-**1. Stepper level-wind hang fix (CRITICAL — safety issue)**
-- `winch/src/StepperControl.cpp` + `.h` rewritten
-- Root cause: `Serial.printf` with float formatting ran every 5ms in main loop (added during drum compensation work). Slowed loop enough that edge-based limit switch detection missed transitions.
-- Fix part A: throttled drum debug printf to 1/sec, removed raw metrics hex dumps from LoRa task
-- Fix part B: rewrote `checkLimitSwitch()` → `isLimitPressed()` — now level-based with direction guard instead of edge-based. Tracks `limitHitDirection` so it always moves AWAY from a pressed switch. Cannot double-toggle. Physically cannot hang even if loop is slow.
-- Old `toggleMotorDirection()` replaced by `reverseFromLimit()` which records direction before reversing.
-- **Test procedure:** hold limit switch button manually while stepper runs — old code hangs, new code should reverse and keep moving away.
+**1. VESC Lisp `get-current` fix (committed af2fdc6, uploaded to VESC)**
+- `docs/vesc-lisp/v2-direct-current.lisp` lines 13 and 88: `(get-current N)` queries a remote motor by CAN ID N — we don't have any. Dropped the arg to read the local motor. Fixed 0-A telemetry. Verified in flight log `winch_v2.10_2026-08-10-19-48-53.csv` — `vescA` now tracks `cmdA` closely.
 
-**2. Removed debug Serial.printf spam from winch main.cpp**
-- Removed raw metrics hex dump (after-cmd and periodic) from LoRa task
-- Removed config debug prints
-- Drum compensation printf throttled to once per second
-- All functional code unchanged, only debug output removed
+**2. VESC Lisp ERPM low-state limit lowered to 1500**
+- Line 78: `(conf-set 'l-max-erpm 1500)` for states 0–1 (was 5000). Tensioning states spin more slowly.
 
-**3. VESC Lisp bug (NOT YET FIXED — do in next session)**
-- `docs/vesc-lisp/v2-direct-current.lisp` line 88: `(get-current 2)` queries non-existent CAN ID 2
-- Should be `(get-current)` with no argument for local motor current
-- This causes intermittent 0A readings. The motor IS applying current at standstill (user confirmed tension is felt), but telemetry reports 0 because it's querying the wrong CAN address.
-- Also fix line 13: `(get-current 1)` → `(get-current)` for consistency
+**3. Stepper limit-switch rewrite — DEFERRED, still under investigation**
+- Previous agent's commit `881f459` introduced a `limitHitDirection` direction-guard that only allowed reversing on one end (`false != false` passes, `true != false` fails → second-end hit ignored).
+- Replaced with a **release-edge gate** (`switchReleasedSinceHit` set only when pin reads HIGH). Cleaner logic, cycles correctly at both ends.
+- Then added a **FALLING-edge GPIO interrupt** on `limitSwitchPin` as backup so a slow main loop can't miss the transition. ISR sets `g_limitInterruptFlag`; `isLimitPressed()` OR's the flag with the polled level.
+- Added **display hysteresis** on drum-diameter (`abs >= 2`) so CAN encoder jitter doesn't fire `updateDisplay()` every loop and starve the stepper poll (SPI mutex is shared).
+- Added an **on-screen diagnostic line** (cyan, Y=195): `S:motorState R:reversalCount D:msSinceLastReverse BT:buttonToggled`. Purpose: reading counters off the LCD is the only way to inspect a hang state, since opening a serial monitor toggles DTR/RTS and resets the ESP32 — that erases the hung state.
+- **Status: still hangs occasionally.** Read one hang state showing `S:0 R:21 D:9072ms BT:0` → motor reached IDLE cleanly via the centering sequence, which means `buttonToggled` went to 0 without the user pressing Button A. Either a phantom button press or a mechanical/electrical issue is flipping BT. Investigation ongoing next session.
 
-### Build & flash instructions
-- Winch: `cd winch && platformio run` then `platformio run --target upload` (COM7)
-- Remote: `cd remote && platformio run` then upload (check COM port)
-- VESC Lisp: paste into VESC Tool > LispBM Editor > Upload
+### Drum-comp validation — DONE
+- Physical test using "tape line to drum + spin motor via VESC Tool" trick to fake encoder to high line-out without paying line out.
+- At `lineOut=867m` command 20A base → cmdA shown 15A (theory says 20 × 0.78 ≈ 15.6, truncates to 15) ✓
+- At `lineOut=435m`, state 1 base 20A → cmdA=17A on LCD (theory 20 × 0.90 = 18) ✓
+- Log `winch_v2.10_2026-08-10-19-48-53.csv` shows compensation applied end-to-end (M5Stack computes → CAN to VESC → back via CAN → LoRa → BLE → phone).
 
-### Test plan for next session
-1. Build winch firmware, verify compiles clean
-2. Flash to M5Stack
-3. Test stepper: hold limit switch while running — must not hang
-4. Test stepper: add `delay(100)` temporarily in loop() to simulate slow loop — must still reverse at switches
-5. Fix VESC Lisp `get-current` bug, upload via VESC Tool
-6. Test current reading: command amps while holding line stationary — should now show non-zero amps
-7. Run scaling test with line out, grab CSV log from phone app
+### Open TODO (carry into next session)
+1. **Stepper hang root cause (HIGH priority, safety)** — inspect why `buttonToggled` flips to 0 unexpectedly. Suspects: (a) M5Stack Button A wearing / phantom press, (b) mechanical noise on the level-wind limit-switch wiring inducing something upstream, (c) still-undiagnosed code bug. Next session: catch a hang, read LCD diag line, check if BT flipped on its own. Consider adding an on-screen counter for Button-A press events too.
+2. **Remove the diagnostic LCD line** once stepper is solid — it's temporary.
+3. **Field-test drum comp with real line-out** (not the tape-trick) at 500m+, compare force ratios to today's spoofed numbers.
+4. **Verify VESC ERPM=1500 change** on real hardware feels right at tensioning states.
+5. **Voltage telemetry**: `vesc_mV` still hardcoded 3700 — need a CAN ID from Lisp for real V.
+6. **Hardware**: decoupling caps on Waveshare SX1262 VDD to fix supply desense.
 
-### Ground test analysis (2026-08-10 logs)
-- Log 1 (34m out): scaling factor ~0.99, working correctly
-- Log 2 (204m out): scaling factor ~0.96, 1-2A lower than log 1 — correct
-- Real scaling difference shows at 750m+ (factor 0.82) and 1500m (factor 0.57)
-- Base currents configured as {0, 10, 29, 34, 35, 36, 38} (from phone config, not defaults)
+### Diagnostic tips (learned this session)
+- **Serial monitor on COM5 resets the ESP32** via CH9102 DTR/RTS. Kills any hung-state investigation. Use the on-LCD diagnostic line instead, or open the port with DTR/RTS disabled from PowerShell.
+- **VESC Lisp on estop**: unclear if Lisp keeps running or halts. Test if you need reliable CAN traffic during estop scenarios.
+- **VESC Tool RT sliders**: current slider is torque control (may stall under friction), RPM slider actually spins. Stop the LispBM script first or its 3-second watchdog zeros your manual command.
 
-## Open Items
+### Build & flash
+- Winch: `cd winch && pio run --target upload --upload-port COM5` (port varies)
+- Remote: `cd remote && pio run --target upload` (check port)
+- VESC Lisp: VESC Tool → LispBM Editor → Stop → paste → Upload → Run (→ Flash for persistence)
+
+## Open Items (long-standing, not this session)
 - Hardware: decoupling caps on Waveshare SX1262 VDD to fix supply desense
 - Voltage telemetry: vesc_mV hardcoded 3700, need CAN ID for real voltage
-- ERPM limiting: no max speed set in Lisp — low states spin too fast
-- Field test for drum compensation at distance pending
+- Field test for drum compensation at real distance still pending

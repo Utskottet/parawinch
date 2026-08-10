@@ -335,6 +335,9 @@ void loop() {
         static int lastDisplayedScaledCurrent = -9999;
         static int lastDisplayedDrumDiam = -1;
 
+        // Hysteresis on noisy fields keeps CAN encoder jitter from firing
+        // updateDisplay() every loop — each call takes 50+ms of SPI mutex time
+        // and can starve the stepper limit-switch poll.
         if (
             forceDisplayRedraw ||
             currentState != lastDisplayedState ||
@@ -345,8 +348,8 @@ void loop() {
             can_temperature != lastDisplayedTemperature ||
             lastLoRaRSSI != lastDisplayedRSSI ||
             lastLoRaSNR != lastDisplayedSNR ||
-            scaledCurrent != lastDisplayedScaledCurrent ||
-            (int)estimatedDrumDiam != lastDisplayedDrumDiam
+            abs(scaledCurrent - lastDisplayedScaledCurrent) >= 2 ||
+            abs((int)estimatedDrumDiam - lastDisplayedDrumDiam) >= 2
         ) {
             display.updateDisplay(
                 currentState,
@@ -390,6 +393,22 @@ void loop() {
         }
     }
     stepper.update();
+
+    // --- Diagnostic status line (temporary — for debugging stepper hangs) ---
+    static unsigned long lastDiagPrint = 0;
+    if (millis() - lastDiagPrint > 500) {
+        lastDiagPrint = millis();
+        if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            M5.Lcd.fillRect(0, 195, 320, 12, BLACK);
+            M5.Lcd.setTextColor(0x07FF);  // cyan
+            M5.Lcd.setTextSize(1);
+            M5.Lcd.setCursor(2, 195);
+            M5.Lcd.printf("S:%u R:%lu D:%lums BT:%d",
+                          stepper.diagState(), stepper.diagReversals(),
+                          millis() - stepper.diagLastRevMs(), buttonToggled ? 1 : 0);
+            xSemaphoreGive(spiMutex);
+        }
+    }
 
     // --- CAN (always runs) ---
     can_send_message();

@@ -1,5 +1,12 @@
 #include "StepperControl.h"
 
+// FALLING-edge ISR flag — set the instant a limit is hit, so we never miss
+// a press even if loop() is stalled in display refresh or CAN wait.
+namespace {
+    volatile bool g_limitInterruptFlag = false;
+    void IRAM_ATTR limitSwitchISR() { g_limitInterruptFlag = true; }
+}
+
 StepperControl::StepperControl(LoRaComm& loraComm) : lora(loraComm) {}
 
 void StepperControl::setup() {
@@ -15,6 +22,7 @@ void StepperControl::setup() {
     pinMode(runStepperPin, OUTPUT);
     pinMode(dirStepperPin, OUTPUT);
     pinMode(limitSwitchPin, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(limitSwitchPin), limitSwitchISR, FALLING);
 }
 
 void StepperControl::runStepper() {
@@ -86,29 +94,39 @@ void StepperControl::setPwmValue(int value) {
 }
 
 void StepperControl::reverseFromLimit() {
-    // Record which direction caused the limit hit, then reverse
-    limitHitDirection = motorDirection;
     motorDirection = !motorDirection;
     digitalWrite(dirStepperPin, motorDirection ? HIGH : LOW);
+    switchReleasedSinceHit = false;
+    reversalCount++;
+    lastReverseMs = millis();
 }
 
 bool StepperControl::isLimitPressed() {
     bool pressed = (digitalRead(limitSwitchPin) == LOW);
 
     if (!pressed) {
+        switchReleasedSinceHit = true;
+    }
+
+    // Consume ISR flag atomically. Either the ISR fired since last poll, or the
+    // pin is currently LOW — both count as a hit worth acting on.
+    noInterrupts();
+    bool isrFired = g_limitInterruptFlag;
+    g_limitInterruptFlag = false;
+    interrupts();
+
+    if (!(isrFired || pressed)) {
         return false;
     }
 
-    // Debounce
+    if (!switchReleasedSinceHit) {
+        return false;
+    }
+
     if (millis() - lastDebounceTime < debounceDelay) {
         return false;
     }
     lastDebounceTime = millis();
-
-    // If switch is pressed and we're ALREADY moving away from it, don't reverse again
-    if (motorDirection != limitHitDirection) {
-        return false;
-    }
 
     return true;
 }
