@@ -55,7 +55,7 @@ void BLEInterface::begin() {
   _rxChar.setProperties(CHR_PROPS_WRITE);
   _rxChar.setPermission(SECMODE_NO_ACCESS, SECMODE_OPEN);
   _rxChar.setWriteCallback(rxWriteCallback);
-  _rxChar.setFixedLen(20);
+  _rxChar.setMaxLen(20);
   _rxChar.begin();
 
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
@@ -117,7 +117,9 @@ bool BLEInterface::sendTelemetry() {
   pkt[5]  = _amps_x10 & 0xFF;
   pkt[6]  = _temp;
   pkt[7]  = (uint8_t)_rssi;
-  // pkt[8] = 0
+  pkt[8]  = _ampSlot;
+  pkt[19] = _baseAmps[_ampSlot];
+  _ampSlot = (_ampSlot + 1) % 6;
   pkt[9]  = _lostPct;
   pkt[10] = _winchBat;
   pkt[11] = _remoteBat;

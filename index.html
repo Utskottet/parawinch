@@ -1304,8 +1304,7 @@ document.addEventListener('fullscreenchange', () => {
 // ── Telemetry packet handler ──────────────────────────────────────────────
 function handleTelemetry(event) {
   const data = new Uint8Array(event.target.value.buffer);
-  console.log('BLE pkt len=' + data.length + ' raw=' + Array.from(data).map(b => b.toString(16).padStart(2,'0')).join(' '));
-  if (data.length < 20) return; // ignore truncated packets
+  if (data.length < 20) return;
 
   const state        = data[0];
   const lineDistance = (data[1] << 8) | data[2];
@@ -1330,7 +1329,12 @@ function handleTelemetry(event) {
   cv.lineState    = lineStateNames[lineState] || '-';
   cv.amps         = (amps_x10 / 10).toFixed(1);
   cv.scaledAmps   = (scaledAmps_x10 / 10).toFixed(1);
-  // baseAmps not in 20-byte telemetry — populated via config write feedback
+  // baseAmps rotating slot: pkt[8]=index(0-5), pkt[19]=value
+  const ampSlot = data[8];
+  if (ampSlot < 6) {
+    if (!cv.baseAmps) cv.baseAmps = [0,0,0,0,0,0];
+    cv.baseAmps[ampSlot] = data[19];
+  }
   cv.temp         = temp > 0 ? temp : 0;
   cv.rssi         = rssi;
   cv.snr          = snr;

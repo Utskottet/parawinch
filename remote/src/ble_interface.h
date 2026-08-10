@@ -10,7 +10,7 @@
  *  [4-5]   amps_x10    uint16  big-endian  (÷10 for display in Amps)
  *  [6]     temp        uint8   °C controller temperature
  *  [7]     rssi        int8    cast to uint8
- *  [8]     reserved    0
+ *  [8]     ampSlot     uint8   rotating 0-5, pairs with [19]
  *  [9]     lostPct     uint8   packet loss 0-100%
  *  [10]    winchBat    uint8   winch battery %
  *  [11]    remoteBat   uint8   remote battery %
@@ -19,7 +19,7 @@
  *  [14-15] vescVolt_dV uint16  big-endian, voltage×10 (e.g. 480 = 48.0V)
  *  [16]    sleepMins   uint8   minutes until deep sleep
  *  [17-18] scaledAmps  uint16  big-endian, compensated cmd amps × 10
- *  [19]    reserved    0
+ *  [19]    ampValue    uint8   baseAmps[ampSlot] for state (slot+1)
  *  [20-25] baseAmps    uint8×6 amp table for states 1-6
  */
 
@@ -70,6 +70,7 @@ private:
   uint8_t  _sleepMins   = 30;
   uint16_t _scaledAmps_x10 = 0;
   uint8_t  _baseAmps[6] = {0};
+  uint8_t  _ampSlot     = 0;
 };
 
 extern BLEInterface bleInterface;

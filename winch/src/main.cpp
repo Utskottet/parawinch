@@ -75,7 +75,6 @@ void LoRaTask(void *pvParameters) {
 
         // 1. Handle incoming commands
         if (lora.receiveCmd(cmd)) {
-            currentState = cmd.state;
             lastCmdSeq = cmd.seq;
 
             // Only allow state change from remote if NOT lineStopActivated
