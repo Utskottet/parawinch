@@ -60,6 +60,48 @@ Next steps:
 - [ ] If phantom presses confirmed: hardware button replacement or software debounce increase
 - [ ] Once resolved, remove the temporary on-LCD diagnostic line (Y=195) from `winch/src/main.cpp`
 
+### Level-wind stepper replacement — planned, not yet ordered (2026-08-12)
+
+Root motivation: current open-loop stepper (17HS2421, 65 Ncm, driven via ISC02 integrated
+driver) has stalled in the field ("not pretty" — do not want a repeat). Want closed-loop
+correction plus real position feedback so we stop blindly trusting the endsw alone. Decided
+against CAN (only 43 Ncm available in NEMA17 + integrated-driver + CAN bus class — too weak)
+and against a separate driver box (no physical space for one). Also ruled out the cheaper
+UIROBOT/ESS non-RS variants on torque and connector-cleanliness grounds.
+
+**Chosen motor: StepperOnline ESS17-RS07**
+https://www.omc-stepperonline.com/ess-series-0-72nm-101-96oz-in-nema-17-integrated-rs485-closed-loop-stepper-servo-motor-24vdc-1000ppr-ess17-rs07
+- NEMA17, 0.72 Nm holding torque (exceeds current 65 Ncm)
+- Integrated closed-loop driver on the motor (no separate driver box)
+- 1000 PPR incremental encoder, 24VDC native
+- RS485/Modbus interface — per StepperOnline's RS485 driver family pattern (DM×RS, CL×RS,
+  iDM-RS), Modbus mode is expected to cover speed, direction (signed velocity), enable, position
+  feedback, and alarm/fault status all over the 2-wire bus. **Not yet confirmed against the
+  actual ESS17-RS07 manual** — `omc-stepperonline.com`, `stepperonline.ca`, and `manualslib.com`
+  were all network-blocked when researching this; get the real PDF manual and verify the
+  register map before wiring anything.
+
+**Wiring plan**
+- Motor: 4 wires — V+ (24V), V− (GND), RS485-A, RS485-B. Single clean cable into the control box.
+- ESP32: existing PWM(GPIO25)/DIR(GPIO21)/RUN(GPIO22) 5V-level-shifted lines are freed up (no
+  longer used for stepper control) — replaced by 2 ESP32 UART pins into an isolated RS485
+  transceiver module (e.g. ADM2483/ISO1176-based breakout), whose differential output feeds
+  RS485-A/B to the motor. Confirm whether the chosen module needs a 3rd DE/RE direction-control
+  GPIO or auto-senses.
+- Endsw: **unchanged** — stays on GPIO35, 3.3V direct, shared node for both physical ends. Kept
+  as the physical homing reference; the encoder is not trusted blind for this safety-relevant
+  axis (level-wind stall previously caused problems, per above).
+
+**Open items before ordering/wiring**
+- [ ] Get and verify the actual ESS17-RS07 manual / Modbus register map (speed, dir, enable,
+      position, alarm all confirmed over RS485, not just inferred from sibling product lines)
+- [ ] Pick isolated RS485 transceiver module; confirm 2-wire (auto-sense) vs 3-wire (DE/RE) needed
+- [ ] Confirm ESP32 UART pins to use (2, or 3 if DE/RE needed)
+- [ ] Rewrite `winch/src/StepperControl.cpp` for Modbus RS485 control (replaces PWM-duty speed
+      command and discrete DIR/RUN logic entirely)
+- [ ] Confirm real-world level-wind torque requirement against 0.72 Nm rating before committing
+- [ ] Field-verify homing/endsw behavior still works correctly alongside encoder position
+
 ### Winch telemetry -- incomplete data pipeline — PRIORITY next code session
 - `vesc_mV` in MetricsPacket is hardcoded `3700` — placeholder, never real data
 - `can_temperature` reaches M5Stack correctly via CAN ID 9 but is never put into MetricsPacket
