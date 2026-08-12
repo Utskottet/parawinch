@@ -33,6 +33,35 @@ Note: plan document says 22S -- this is wrong. Use 20S.
 
 ---
 
+## Level-Wind Stepper
+
+### Driver
+
+| Parameter              | Value          | Source          |
+|-------------------------|----------------|-----------------|
+| Model                   | ISC02 (integrated stepper motor controller) | order listing |
+| Current range           | 0–2 A          | order listing   |
+| Input voltage range     | 10–28 VDC      | order listing   |
+| Compatible motor sizes  | NEMA 8, 11, 14, 17 | order listing |
+| Operating voltage (this system) | 24 V   | confirmed       |
+
+### Motor
+
+| Parameter        | Value              | Source          |
+|-------------------|--------------------|-----------------|
+| Model             | 17HS2421 04S (NEMA 17 bipolar) | order listing |
+| Step angle        | 1.8°               | order listing   |
+| Holding torque    | 65 Ncm (92 oz·in)  | order listing   |
+| Rated current     | 2.1 A              | order listing   |
+| Rated voltage     | 3.36 V             | order listing   |
+| Dimensions        | 42×42×60 mm        | order listing   |
+| Wiring            | 4-wire bipolar     | order listing   |
+
+Pin mapping and control logic: see `winch/src/StepperControl.h/.cpp` — PWM speed pin, run pin,
+dir pin, limit switch pin (single switch, reversal-based homing).
+
+---
+
 ## Drivetrain
 
 | Parameter         | Value      | Source          |
