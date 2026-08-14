@@ -54,7 +54,8 @@ void Display::drawButtonLabels() {
 
 void Display::updateDisplay(int currentState, int rssi, float snr, int lineOut,
                           int current, bool lineStopArmed, bool lineStopActivated,
-                          int canTemperature, int scaledCurrent, int drumDiam) {
+                          int canTemperature, int scaledCurrent, int drumDiam,
+                          bool stepperStalled) {
     xSemaphoreTake(spiMutex, portMAX_DELAY);
     
     // Clear all data areas
@@ -91,7 +92,13 @@ void Display::updateDisplay(int currentState, int rssi, float snr, int lineOut,
     uint16_t statusColor;
     String statusText;
     
-    if (lineStopActivated) {
+    if (stepperStalled) {
+        // Highest precedence: this is the actionable fault. A separate beast
+        // from the line stop — it only shares this status line and the Button C
+        // reset gesture.
+        statusColor = ALERT_RED;
+        statusText = "STEPPER STALL";
+    } else if (lineStopActivated) {
         statusColor = ALERT_RED;
         statusText = "STOPPED";
     } else if (lineStopArmed) {

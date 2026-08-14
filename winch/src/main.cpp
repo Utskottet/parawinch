@@ -29,6 +29,9 @@ int32_t lineOutOffset = 0;
 
 bool armLineStop = false;
 bool lineStopActivated = false;
+// Level-wind stall. A separate fault from the line stop — it only shares the
+// same "force state 0" failsafe and the same Button C reset gesture.
+bool stepperStalled = false;
 const int armLineStopThreshold = 40;
 const int lineStopThreshold = 35;
 
@@ -102,7 +105,10 @@ void LoRaTask(void *pvParameters) {
             m.vesc_mV     = 3700; // Replace with real value if available
 
             // --- State mapping for remote ---
-            if (lineStopActivated) {
+            // Stall takes precedence: it is the actionable fault.
+            if (stepperStalled) {
+                m.lineState = 'T';    // sTall
+            } else if (lineStopActivated) {
                 m.lineState = 'S';    // Stopped
             } else if (armLineStop) {
                 m.lineState = 'A';    // Armed
@@ -147,7 +153,9 @@ void LoRaTask(void *pvParameters) {
             m.distance_m  = max((int32_t)0, -(can_distance - lineOutOffset));
             m.vesc_mV     = 3700;
 
-            if (lineStopActivated) {
+            if (stepperStalled) {
+                m.lineState = 'T';
+            } else if (lineStopActivated) {
                 m.lineState = 'S';
             } else if (armLineStop) {
                 m.lineState = 'A';
@@ -258,6 +266,9 @@ void loop() {
         if (buttonCPressCount == 2) {
             lineStopActivated = false;
             armLineStop = false;
+            stepper.clearJam();    // same gesture clears a latched level-wind jam
+            stepper.clearStall();
+            stepperStalled = false;
             Serial.println("LineStop deactivated");
         } else {
             lineOutOffset = can_distance;
@@ -278,8 +289,17 @@ void loop() {
         Serial.println("LineStop activated");
     }
 
-    // --- Failsafe: Force STOP if lineStopActivated ---
-    if (lineStopActivated) {
+    // --- Level-wind stall watchdog ---
+    // Armed whenever the carriage is being driven; see StepperControl.cpp for
+    // why this is not gated on the drum turning.
+    stepper.updateStallWatchdog();
+    if (stepper.isStalled() && !stepperStalled) {
+        stepperStalled = true;
+        Serial.println("Stepper stall - forcing state 0");
+    }
+
+    // --- Failsafe: Force STOP if lineStopActivated or the level wind stalled ---
+    if (lineStopActivated || stepperStalled) {
         currentState = 0;
     }
 
@@ -334,6 +354,7 @@ void loop() {
         static float lastDisplayedSNR = 12345.0; // impossible value to force update first loop
         static int lastDisplayedScaledCurrent = -9999;
         static int lastDisplayedDrumDiam = -1;
+        static bool lastDisplayedStepperStalled = false;
 
         // Hysteresis on noisy fields keeps CAN encoder jitter from firing
         // updateDisplay() every loop — each call takes 50+ms of SPI mutex time
@@ -345,6 +366,7 @@ void loop() {
             can_current != lastDisplayedCurrent ||
             armLineStop != lastDisplayedLineStopArmed ||
             lineStopActivated != lastDisplayedLineStopActivated ||
+            stepperStalled != lastDisplayedStepperStalled ||
             can_temperature != lastDisplayedTemperature ||
             lastLoRaRSSI != lastDisplayedRSSI ||
             lastLoRaSNR != lastDisplayedSNR ||
@@ -361,7 +383,8 @@ void loop() {
                 lineStopActivated,
                 can_temperature,
                 scaledCurrent,
-                (int)estimatedDrumDiam
+                (int)estimatedDrumDiam,
+                stepperStalled
             );
             lastDisplayedState = currentState;
             lastDisplayedLineOut = adjustedLineOut;
@@ -373,6 +396,7 @@ void loop() {
             lastDisplayedSNR = lastLoRaSNR;
             lastDisplayedScaledCurrent = scaledCurrent;
             lastDisplayedDrumDiam = (int)estimatedDrumDiam;
+            lastDisplayedStepperStalled = stepperStalled;
             forceDisplayRedraw = false;
         }
 
@@ -403,9 +427,10 @@ void loop() {
             M5.Lcd.setTextColor(0x07FF);  // cyan
             M5.Lcd.setTextSize(1);
             M5.Lcd.setCursor(2, 195);
-            M5.Lcd.printf("S:%u R:%lu D:%lums BT:%d",
+            M5.Lcd.printf("S:%u R:%lu D:%lums X:%lu J:%d BT:%d",
                           stepper.diagState(), stepper.diagReversals(),
-                          millis() - stepper.diagLastRevMs(), buttonToggled ? 1 : 0);
+                          millis() - stepper.diagLastRevMs(), stepper.diagRejected(),
+                          stepper.diagJam() ? 1 : 0, buttonToggled ? 1 : 0);
             xSemaphoreGive(spiMutex);
         }
     }

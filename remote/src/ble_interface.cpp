@@ -77,6 +77,7 @@ void BLEInterface::setLineState(char c) {
   switch (c) {
     case 'A': _lineState = 1; break;
     case 'S': _lineState = 2; break;
+    case 'T': _lineState = 3; break; // level-wind stall
     default:  _lineState = 0; break; // 'R' or '-'
   }
 }

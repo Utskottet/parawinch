@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Winch Remote v2.10</title>
+<title>Winch Remote v2.11</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -199,6 +199,8 @@ body {
 .line-state.ready  { background: #4CAF50; color: white; }
 .line-state.armed  { background: #FF9800; color: white; }
 .line-state.stopped { background: #f44336; color: white; }
+/* Distinct from .stopped so a level-wind stall is never mistaken for a line stop */
+.line-state.stall  { background: #9C27B0; color: white; }
 
 /* Right column */
 .right-column { display: flex; flex-direction: column; gap: 6px; }
@@ -459,7 +461,7 @@ body {
 <body>
 <div class="main-content">
   <div class="header">
-    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.10</span></h1>
+    <h1>🪂 Winch Remote <span style="font-size:10px;color:#888;">v2.11</span></h1>
     <div class="controls">
       <span class="status-dot" id="winchDot"></span><span class="status" id="status">Winch</span>
       <span class="status-dot" id="xctDot"></span><span class="status" id="xctStatus">GPS</span>
@@ -628,7 +630,7 @@ body {
       <button class="calc-back" onclick="hideCalc()">← Back</button>
       <div class="calc-title-wrap">
         <div class="calc-title">Tow Calculator</div>
-        <div class="calc-subtitle">PARAWINCH / SIM · v2.10</div>
+        <div class="calc-subtitle">PARAWINCH / SIM · v2.11</div>
       </div>
     </div>
 
@@ -1113,7 +1115,7 @@ function downloadCSV() {
   const eff      = energyWh > 0 ? (maxAltGain / energyWh).toFixed(0) : 'N/A';
   const dateStr  = logStart.toISOString().slice(0,19).replace('T',' ');
   const summary  = [
-    '# App version: v2.10',
+    '# App version: v2.11',
     '# Flight: ' + dateStr,
     '# Duration: ' + duration + 's',
     '# Max height gained: ' + maxAltGain + ' m',
@@ -1132,15 +1134,15 @@ function downloadCSV() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = 'winch_v2.10_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
+  a.download = 'winch_v2.11_' + logStart.toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-const lineStateNames   = ['READY', 'ARMED', 'STOPPED'];
-const lineStateClasses = ['ready', 'armed', 'stopped'];
+const lineStateNames   = ['READY', 'ARMED', 'STOPPED', 'STEPPER STALL'];
+const lineStateClasses = ['ready', 'armed', 'stopped', 'stall'];
 
 // ── Winch GATT (re)connection ────────────────────────────────────────────
 // attachWinchDevice() wires the disconnect listener exactly once per authorized

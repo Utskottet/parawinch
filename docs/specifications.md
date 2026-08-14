@@ -16,6 +16,50 @@ Note: plan document says 22S -- this is wrong. Use 20S.
 
 ---
 
+## Level-Wind Stepper
+
+### Driver
+
+| Parameter               | Value              | Source        |
+|--------------------------|--------------------|---------------|
+| Model                    | Integrated Stepper Motor Controller | order listing |
+| Current range            | 0–2 A              | order listing |
+| Input voltage range      | 10–28 VDC          | order listing |
+| Compatible motor sizes   | NEMA 8, 11, 14, 17 | order listing |
+| Operating voltage (this system) | 24 V        | confirmed     |
+| Speed input              | 5 V PWM            | order listing |
+| Direction control        | Run / Dir          | order listing |
+
+### Motor
+
+| Parameter         | Value             | Source        |
+|--------------------|-------------------|---------------|
+| Model              | NEMA 17 Bipolar   | order listing |
+| Step angle         | 1.8°              | order listing |
+| Holding torque     | 65 Ncm (92 oz·in) | order listing |
+| Rated current      | 2.1 A             | order listing |
+| Rated voltage      | 3.36 V            | order listing |
+| Dimensions         | 42×42×60 mm       | order listing |
+| Wiring             | 4-wire bipolar    | order listing |
+
+### Mechanism
+
+Drives a ballscrew that flip-flops travel direction between two end (limit) switches --
+the carriage runs to one end, reverses, runs to the other end, reverses again.
+
+Both end switches are wired in parallel onto a single input, `limitSwitchPin` = GPIO 35.
+Pin mapping and control logic: see `winch/src/StepperControl.h/.cpp` -- PWM speed pin, run pin,
+dir pin, limit switch pin. Reversal fires on a debounced released->pressed edge (25 ms
+stability window) with a 400 ms lockout, plus a 3 s stuck-switch watchdog that forces up to
+three recovery reversals before latching a jam fault and cutting the run pin.
+
+**Wiring requirement:** GPIO 35 is input-only and has no internal pull-up (true of GPIO 34-39
+on all ESP32s), so `INPUT_PULLUP` is a no-op on this pin. The switch line needs an external
+4k7 pull-up to 3V3 and a 100nF cap to GND at the ESP32 end -- without it the line floats
+whenever both switches are open and picks up noise from the stepper driver.
+
+---
+
 ## Motor
 
 | Parameter         | Value          | Source          |
