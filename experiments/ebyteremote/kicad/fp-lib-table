@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "parawinch")(type "KiCad")(uri "${KIPRJMOD}/lib/parawinch.pretty")(options "")(descr "ParaWinch project footprints from JLC/EasyEDA/SnapEDA"))
+)

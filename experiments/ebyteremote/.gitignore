@@ -1,0 +1,14 @@
+# KiCad session lock files (present only while the project is open)
+~*.lck
+
+# KiCad local history — 3300+ auto-snapshots, ~46 MB, and it contains its own .git.
+# Kept on disk so File > Local History still works; never committed.
+kicad/.history/
+
+# Per-user local project state (window layout, last open sheet)
+*.kicad_prl
+
+# Caches and KiCad's own automatic backups
+fp-info-cache
+*-backups/
+_autosave-*

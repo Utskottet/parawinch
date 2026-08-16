@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "parawinch")(type "KiCad")(uri "${KIPRJMOD}/lib/parawinch.kicad_sym")(options "")(descr "ParaWinch project parts from JLC/EasyEDA"))
+  (lib (name "E22-900M30S")(type "KiCad")(uri "${KIPRJMOD}/lib/E22-900M30S.kicad_sym")(options "")(descr "Ebyte E22-900M30S LoRa module from SnapEDA"))
+)
