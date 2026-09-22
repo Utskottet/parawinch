@@ -23,6 +23,7 @@
 
 #include "../utilities.h"
 #include "../lorastruct.h"
+#include "../lora_init.h"
 
 // ─── Radio ───────────────────────────────────────────────────────────────────
 Module radioMod(LORA_CS_PIN, LORA_DIO1_PIN, LORA_RST_PIN, LORA_BUSY_PIN, SPI);
@@ -320,12 +321,9 @@ static bool radioInit(bool verbose) {
   digitalWrite(LORA_CS_PIN, HIGH);
   delay(LORA_BOOT_SETTLE_MS);
 
-  int16_t err = lora.begin(LORA_FREQUENCY_MHZ, LORA_BANDWIDTH_KHZ,
-                           LORA_SPREADING_FACTOR, LORA_CODING_RATE,
-                           RADIOLIB_SX126X_SYNC_WORD_PRIVATE,
-                           txPower, 8, tcxoVolts);
-  if (verbose) Serial.printf("  begin(tcxo=%.1fV) -> %d %s\n", tcxoVolts, err,
-                             err == RADIOLIB_ERR_NONE ? "OK" : "FAIL");
+  // Retry with a full rail power cycle: on this board RST is also the E22 boost
+  // EN, so a single-shot begin() usually comes back -2 (see lora_init.h).
+  int16_t err = loraBeginWithRetry(lora, txPower, tcxoVolts, LORA_BEGIN_ATTEMPTS, verbose);
   if (err != RADIOLIB_ERR_NONE) { radioUp = false; return false; }
 
   lora.setBandwidth(LORA_BANDWIDTH_KHZ);
@@ -539,13 +537,15 @@ static void serviceListen() {
   if (!radioIRQ) return;
   radioIRQ = false;
   uint8_t buf[40];
-  size_t  len = sizeof(buf);
+  size_t  plen = lora.getPacketLength();   // must be read before readData()
+  if (plen > sizeof(buf)) plen = sizeof(buf);
+  size_t  len  = sizeof(buf);
   int16_t st  = lora.readData(buf, len);
-  if (st == RADIOLIB_ERR_NONE && len) {
+  if (st == RADIOLIB_ERR_NONE && plen) {
     Serial.printf("  RX type 0x%02X  %2u B  RSSI %6.1f  SNR %5.1f  |",
-                  buf[0], (unsigned)len, lora.getRSSI(), lora.getSNR());
-    for (size_t i = 0; i < len && i < 16; ++i) Serial.printf(" %02X", buf[i]);
-    if (buf[0] == 0x02 && len >= sizeof(MetricsPacket)) {
+                  buf[0], (unsigned)plen, lora.getRSSI(), lora.getSNR());
+    for (size_t i = 0; i < plen && i < 16; ++i) Serial.printf(" %02X", buf[i]);
+    if (buf[0] == 0x02 && plen >= METRICS_BASE_LEN) {
       auto* m = reinterpret_cast<MetricsPacket*>(buf);
       Serial.printf("   metrics seq:%u amps:%.1f dist:%u", m->seq,
                     m->amps_x10 / 10.0f, m->distance_m);

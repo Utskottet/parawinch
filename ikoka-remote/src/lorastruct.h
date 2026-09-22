@@ -55,6 +55,12 @@ struct MetricsPacket {        // 0x02  winch → remote (broadcast)
   uint8_t  baseAmps[6];      // current amp table (state 1-6)
 };
 
+// MetricsPacket grew by scaled_amps_x10 + baseAmps[6] when drum compensation
+// landed. The bench winch simulator (and sim/src) still send the original
+// 10-byte frame, so the remote accepts anything from METRICS_BASE_LEN up and
+// treats the absent tail as zero. The real winch sends the full 18 bytes.
+#define METRICS_BASE_LEN  10   // sizeof() through lineState
+
 struct ConfigPacket {         // 0x05  phone → winch (via remote relay)
   uint8_t type = 0x05;
   uint8_t seq;

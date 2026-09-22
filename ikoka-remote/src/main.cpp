@@ -5,6 +5,7 @@
 #include <nrf_gpio.h>
 #include "utilities.h"
 #include "lorastruct.h"
+#include "lora_init.h"
 #include "buzzer.h"
 #include "ble_interface.h"
 
@@ -174,6 +175,27 @@ void processMetricsPacket(const MetricsPacket* m) {
   metricsDirty = true;
 }
 
+// Accept both the current 18-byte MetricsPacket and the older 10-byte frame the
+// bench simulator still sends; absent tail fields read as zero (lorastruct.h).
+void processMetricsFrame(const uint8_t* buf, size_t len) {
+  if (len < METRICS_BASE_LEN) return;
+  MetricsPacket m{};                                   // zero-fill the tail
+  memcpy(&m, buf, len < sizeof(m) ? len : sizeof(m));
+  processMetricsPacket(&m);
+}
+
+// RadioLib's readData() does not write the received length back to the caller,
+// so the real payload length has to be sampled first (getPacketLength() must be
+// read *before* readData(), which clears the radio status). Returns
+// RADIOLIB_ERR_NONE on a good frame and puts the true length in outLen.
+int16_t readPacket(uint8_t* buf, size_t bufSize, size_t& outLen) {
+  size_t plen = lora.getPacketLength();
+  if (plen > bufSize) plen = bufSize;
+  outLen = plen;
+  size_t len = bufSize;
+  return lora.readData(buf, len);
+}
+
 // ─── sendCmd() ── immediate BLE feedback, then LoRa ACK/retry if radio ready ─
 bool sendCmd(uint8_t st) {
   uint8_t oldState = confirmedState;
@@ -213,10 +235,10 @@ bool sendCmd(uint8_t st) {
       if (radioIRQ) {
         radioIRQ = false;
         uint8_t buf[24];
-        size_t  len = sizeof(buf);
+        size_t  plen = 0;
 
-        if (lora.readData(buf, len) == RADIOLIB_ERR_NONE && len) {
-          if (buf[0] == 0x03 && len >= sizeof(AckPacket)) {
+        if (readPacket(buf, sizeof(buf), plen) == RADIOLIB_ERR_NONE && plen >= 1) {
+          if (buf[0] == 0x03 && plen >= sizeof(AckPacket)) {
             auto* ack = reinterpret_cast<AckPacket*>(buf);
             if (ack->seq == awaitingSeq) {
               awaitingSeq    = 0;
@@ -228,8 +250,8 @@ bool sendCmd(uint8_t st) {
               DBGF("[CMD] ACK  confirmed:%u", confirmedState);
               return true;
             }
-          } else if (buf[0] == 0x02 && len >= sizeof(MetricsPacket)) {
-            processMetricsPacket(reinterpret_cast<MetricsPacket*>(buf));
+          } else if (buf[0] == 0x02) {
+            processMetricsFrame(buf, plen);
           }
         }
         lora.startReceive();
@@ -373,10 +395,10 @@ void setup() {
   // by the explicit setters below. DIO3/TCXO is the one that cannot wait: it
   // powers the E22's 32 MHz TCXO, which has to be running for begin()'s
   // calibration, and RadioLib's default of 1.6 V is below what EBYTE specify.
-  int16_t  loraErr   = lora.begin(LORA_FREQUENCY_MHZ, LORA_BANDWIDTH_KHZ,
-                                  LORA_SPREADING_FACTOR, LORA_CODING_RATE,
-                                  RADIOLIB_SX126X_SYNC_WORD_PRIVATE,
-                                  LORA_OUTPUT_POWER_DBM, 8, LORA_TCXO_VOLTAGE_V);
+  // loraBeginWithRetry() retries with a full rail power cycle: on this board
+  // RST is also the boost EN, so a single-shot begin() comes back -2 most of
+  // the time (see lora_init.h).
+  int16_t  loraErr   = loraBeginWithRetry(lora);
   DBGF("[LoRa] begin() took %lu ms, code %d", millis() - loraStart, loraErr);
 
   if (loraErr == RADIOLIB_ERR_NONE) {
@@ -414,12 +436,10 @@ void loop() {
   if (radioIRQ) {
     radioIRQ = false;
     uint8_t buf[24];
-    size_t  len = sizeof(buf);
+    size_t  plen = 0;
 
-    if (lora.readData(buf, len) == RADIOLIB_ERR_NONE) {
-      if (len >= sizeof(MetricsPacket) && buf[0] == 0x02) {
-        processMetricsPacket(reinterpret_cast<MetricsPacket*>(buf));
-      }
+    if (readPacket(buf, sizeof(buf), plen) == RADIOLIB_ERR_NONE && plen >= 1) {
+      if (buf[0] == 0x02) processMetricsFrame(buf, plen);
     }
     lora.startReceive();
   }
