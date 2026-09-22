@@ -6,7 +6,12 @@
 #define LORA_BANDWIDTH_KHZ      125.0f
 #define LORA_SPREADING_FACTOR   9
 #define LORA_CODING_RATE        6          // 4/6
+// SX1262 PA setting, -9..22 dBm. 22 is the chip's ceiling; the E22's external
+// PA then adds ~+7 dB, so the antenna sees ~29 dBm. Override per build for bench
+// sweeps, e.g.:  PLATFORMIO_BUILD_FLAGS="-D LORA_OUTPUT_POWER_DBM=10" pio run
+#ifndef LORA_OUTPUT_POWER_DBM
 #define LORA_OUTPUT_POWER_DBM   22
+#endif
 #define LORA_CURRENT_LIMIT_MA   140.0f  // RadioLib max; SX1262 draws ~118mA at 22dBm
 
 /*  E22-900M30S notes (Ikoka Nano build only)
